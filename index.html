@@ -522,6 +522,7 @@
             <div class="control-group">
                 <label for="program-select">Programma</label>
                 <select id="program-select" onchange="loadProgram()"></select>
+                <div id="program-preview" style="font-size: 13px; color: var(--accent-blue); font-weight: 600; margin-top: 2px;"></div>
             </div>
 
             <div class="control-group">
@@ -785,17 +786,19 @@
             ]
         };
 
-        // Etichette leggibili per il log e lo stato video
+        // Etichette leggibili per il log, lo stato video e l'anteprima programma.
+        // Schema fisso: {passeggiata, jogging, corsa} × {pianura, collina, montagna}
+        // (le chiavi interne restano quelle di sempre, cambia solo il testo mostrato)
         const categoryLabels = {
-            "passeggiata_citta":         "Passeggiata in città",
-            "jogging_citta":             "Jogging in città",
-            "corsa_citta":               "Corsa in città",
+            "passeggiata_citta":         "Passeggiata in pianura",
+            "jogging_citta":             "Jogging in pianura",
+            "corsa_citta":               "Corsa in pianura",
             "passeggiata_collina":       "Passeggiata in collina",
-            "camminata_blanda_collina":  "Camminata blanda in collina",
+            "camminata_blanda_collina":  "Jogging in collina",
             "corsa_collina":             "Corsa in collina",
-            "camminata_ripida_montagna": "Camminata ripida in montagna",
-            "salita_montagna":           "Salita in montagna",
-            "trail_running_montagna":    "Trail running in montagna"
+            "camminata_ripida_montagna": "Passeggiata in montagna",
+            "salita_montagna":           "Jogging in montagna",
+            "trail_running_montagna":    "Corsa in montagna"
         };
 
         function pickQueryFor(category) {
@@ -862,7 +865,18 @@
             currentProgram = programs.find(p => p.name === progName);
             calculateSegments();
             if(isRunning) resetTimer();
+            updateProgramPreview();
             triggerVideoUpdate();
+        }
+
+        function updateProgramPreview() {
+            const el = document.getElementById('program-preview');
+            if (!el || !currentProgram) return;
+            const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+            const avgSpeed = avg(currentProgram.speed);
+            const avgIncline = avg(currentProgram.incline);
+            const category = classifyProgram(avgSpeed, avgIncline);
+            el.innerText = "🎬 Ti aspetta: " + (categoryLabels[category] || category);
         }
 
         function calculateSegments() {
