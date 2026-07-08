@@ -76,11 +76,19 @@
             flex-grow: 1;
         }
 
+        #mini-sessions-panel { display: none; }
+
+        body.bt-live-active #duration-control-group,
+        body.bt-live-active #normal-timer-controls {
+            display: none;
+        }
+
         @media(min-width: 900px) {
             .main-grid {
                 display: grid;
                 grid-template-columns: 350px 1fr;
             }
+            #mini-sessions-panel { display: block; }
         }
 
         /* Su mobile, quando il video è attivo, mostra prima il video+grafico e poi i controlli */
@@ -187,7 +195,7 @@
             text-align: center;
         }
 
-        .stat-box.full-width {
+        .full-width {
             grid-column: span 2;
         }
 
@@ -195,28 +203,29 @@
         .view { display: none; }
         .view.active { display: block; }
 
-        .nav-tabs {
-            display: flex;
-            gap: 8px;
-            padding: 10px 16px 0;
-            max-width: 1100px;
-            margin: 0 auto;
+        header {
+            flex-wrap: wrap;
+            row-gap: 10px;
         }
-        .nav-tabs button {
-            flex: 1;
-            border: 1px solid var(--border-color);
-            background: var(--bg-secondary);
-            color: var(--text-muted);
-            padding: 10px;
-            border-radius: 10px;
-            font-size: 13px;
+
+        .header-nav {
+            display: flex;
+            gap: 6px;
+        }
+        .header-nav button {
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.75);
+            padding: 7px 13px;
+            border-radius: 9px;
+            font-size: 12.5px;
             font-weight: 600;
             cursor: pointer;
+            white-space: nowrap;
         }
-        .nav-tabs button.active {
-            background: var(--accent-blue);
-            color: white;
-            border-color: var(--accent-blue);
+        .header-nav button.active {
+            background: #fff;
+            color: var(--bg-primary);
         }
 
         /* ═══════════ STORICO: profilo, riepiloghi, grafico, sessioni ═══════════ */
@@ -613,13 +622,12 @@
             <div class="logo-box">Bcube</div>
             <div class="logo-text">Dashboard</div>
         </div>
+        <div class="header-nav">
+            <button id="nav-workout" class="active" onclick="switchView('workout')">🏃 Allenamento</button>
+            <button id="nav-history" onclick="switchView('history')">📊 Storico</button>
+        </div>
         <div id="status-tag" style="font-size: 12px; color: var(--text-muted);">Pronto</div>
     </header>
-
-    <div class="nav-tabs">
-        <button id="nav-workout" class="active" onclick="switchView('workout')">🏃 Allenamento</button>
-        <button id="nav-history" onclick="switchView('history')">📊 Storico</button>
-    </div>
 
     <div id="view-workout" class="view active">
     <div class="main-grid">
@@ -646,7 +654,7 @@
                 </div>
             </div>
 
-            <div class="control-group">
+            <div class="control-group" id="duration-control-group">
                 <label for="duration-input">Durata Totale (Minuti)</label>
                 <input type="number" id="duration-input" value="30" min="1" max="120" onchange="calculateSegments()">
             </div>
@@ -665,22 +673,22 @@
                 <div id="bt-status" style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Non connesso. Funziona solo se il tapis espone lo standard FTMS (il Bcube A8 Plus è certificato ufficialmente solo per le app Kinomap/AnyRun, quindi non è garantito).</div>
             </div>
 
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px;" id="normal-timer-controls">
                 <button id="btn-action" class="btn btn-start" style="flex: 2;" onclick="toggleTimer()">Avvia</button>
                 <button id="btn-reset" class="btn btn-reset" style="flex: 1;" onclick="handleResetButtonClick()">Reset</button>
             </div>
 
             <div class="live-dashboard">
                 <div class="stat-box full-width">
-                    <div class="stat-label">Tempo Rimanente Totale</div>
+                    <div id="label-total-time" class="stat-label">Tempo Rimanente Totale</div>
                     <div id="live-total-time" class="stat-value">30:00</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-label">Segmento</div>
+                    <div id="label-segment" class="stat-label">Segmento</div>
                     <div id="live-segment" class="stat-value">—</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-label">Rim. Segm.</div>
+                    <div id="label-seg-time" class="stat-label">Rim. Segm.</div>
                     <div id="live-seg-time" class="stat-value">—</div>
                 </div>
                 <div class="stat-box">
@@ -695,11 +703,17 @@
                     <div class="stat-label">📡 Tapis (Bluetooth reale)</div>
                     <div class="stat-value" style="font-size:14px;"><span id="bt-live-speed">—</span> km/h · <span id="bt-live-incline">—</span>%</div>
                 </div>
+                <button id="btn-bt-stop" class="btn btn-reset full-width" style="display:none; background-color:#7f1d1d;" onclick="endBtLiveWorkout()">⏹ Ferma Allenamento Bluetooth</button>
             </div>
 
             <div class="progress-container">
                 <div id="main-progress" class="progress-bar"></div>
                 <div id="progress-text" class="progress-text">0% Completato</div>
+            </div>
+
+            <div id="mini-sessions-panel">
+                <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin:6px 0 4px;">🗒️ Ultime sessioni</label>
+                <div id="mini-session-list" style="font-size:11px;"></div>
             </div>
         </div>
 
@@ -804,11 +818,23 @@
 
             <div class="panel">
                 <label style="font-size:13px; font-weight:700; margin-bottom:8px; display:block;">📈 Riepilogo</label>
-                <div class="period-tabs" style="margin-bottom:10px;">
+                <div class="period-tabs" style="margin-bottom:10px; flex-wrap:wrap;">
                     <button id="period-week" class="active" onclick="setSummaryPeriod('week')">Settimana</button>
                     <button id="period-month" onclick="setSummaryPeriod('month')">Mese</button>
                     <button id="period-year" onclick="setSummaryPeriod('year')">Anno</button>
                     <button id="period-all" onclick="setSummaryPeriod('all')">Totale</button>
+                    <button id="period-custom" onclick="showCustomPeriodPicker()">Personalizzato</button>
+                </div>
+                <div id="custom-period-form" style="display:none; gap:8px; align-items:flex-end; margin-bottom:10px; flex-wrap:wrap;">
+                    <div>
+                        <label style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Dal</label>
+                        <input type="date" id="custom-date-start" style="padding:7px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-main); font-size:12px;">
+                    </div>
+                    <div>
+                        <label style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Al</label>
+                        <input type="date" id="custom-date-end" style="padding:7px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-main); font-size:12px;">
+                    </div>
+                    <button class="btn btn-start" style="margin-top:0; padding:8px 16px; font-size:12px;" onclick="applyCustomPeriod()">Applica</button>
                 </div>
                 <div class="summary-grid">
                     <div class="stat-box">
@@ -991,6 +1017,18 @@
             if (el) el.innerText = msg;
         }
 
+        // ── Stato della sessione "Bluetooth Live" (tempo libero, guidata dai dati reali) ──
+        let btLiveMode = false;
+        let btLiveStartTs = null;
+        let btLiveLastTs = null;
+        let btLiveLastSpeed = 0;
+        let btLiveIncline = 0;       // 0 se il tapis non trasmette la pendenza (vedi nota sotto)
+        let btLiveDistanceKm = 0;
+        let btLiveKcal = 0;
+        let btLiveZeroSince = null;
+        let btLiveTimerId = null;
+        const BT_STOP_GRACE_MS = 8000; // 8s a velocità ~0 = fine allenamento
+
         async function connectBluetoothTreadmill() {
             if (!navigator.bluetooth) {
                 setBtStatus("⚠️ Questo browser non supporta il Bluetooth Web (serve Chrome su Android; iOS/Safari non è supportato).");
@@ -1012,7 +1050,7 @@
                 char.addEventListener('characteristicvaluechanged', handleTreadmillData);
 
                 document.getElementById('bt-live-box').style.display = 'flex';
-                setBtStatus("✅ Connesso a " + (btDevice.name || "tapis") + ". Dati reali in arrivo...");
+                setBtStatus("✅ Connesso a " + (btDevice.name || "tapis") + ". Appena il tapis si muove parte in automatico l'allenamento a tempo libero.");
             } catch (e) {
                 if (e.name === 'NotFoundError') {
                     setBtStatus("⚠️ Nessun tapis con dati Bluetooth standard (FTMS) trovato nelle vicinanze. Il tuo Bcube A8 Plus è certificato solo per Kinomap/AnyRun: è possibile che non esponga questo standard, quindi potrebbe non essere collegabile da un browser.");
@@ -1027,19 +1065,23 @@
         function onBtDisconnected() {
             setBtStatus("🔌 Tapis disconnesso.");
             document.getElementById('bt-live-box').style.display = 'none';
+            if (btLiveMode) endBtLiveWorkout(); // il tapis si è disconnesso a metà sessione: salvo comunque quanto raccolto
         }
 
         // Analizza il pacchetto "Treadmill Data" secondo lo standard FTMS:
         // i primi 2 byte sono i flag che indicano quali campi opzionali seguono
-        // la velocità istantanea (sempre presente).
+        // la velocità istantanea (sempre presente). Controlli di lunghezza inclusi
+        // per non far crashare l'app se il tapis manda un pacchetto più corto del previsto.
         function parseTreadmillData(dataView) {
             let offset = 0;
             const flags = dataView.getUint16(offset, true); offset += 2;
             const out = {};
-            out.speed = dataView.getUint16(offset, true) / 100; offset += 2; // km/h
-            if (flags & 0x0001) offset += 2;  // Average Speed (non ci serve)
-            if (flags & 0x0002) offset += 3;  // Total Distance (24-bit)
-            if (flags & 0x0004) {              // Inclination + Ramp Angle
+            if (dataView.byteLength >= offset + 2) {
+                out.speed = dataView.getUint16(offset, true) / 100; offset += 2; // km/h
+            }
+            if (flags & 0x0001 && dataView.byteLength >= offset + 2) offset += 2;  // Average Speed (non ci serve)
+            if (flags & 0x0002 && dataView.byteLength >= offset + 3) offset += 3;  // Total Distance (24-bit)
+            if (flags & 0x0004 && dataView.byteLength >= offset + 4) {              // Inclination + Ramp Angle
                 out.incline = dataView.getInt16(offset, true) / 10; offset += 2;
                 offset += 2;
             }
@@ -1049,13 +1091,118 @@
         function handleTreadmillData(event) {
             try {
                 const data = parseTreadmillData(event.target.value);
-                if (typeof data.speed === 'number' && !isNaN(data.speed)) {
-                    document.getElementById('bt-live-speed').innerText = data.speed.toFixed(1);
-                }
+                const now = Date.now();
                 if (typeof data.incline === 'number' && !isNaN(data.incline)) {
                     document.getElementById('bt-live-incline').innerText = data.incline.toFixed(1);
                 }
+                if (typeof data.speed === 'number' && !isNaN(data.speed)) {
+                    document.getElementById('bt-live-speed').innerText = data.speed.toFixed(1);
+                    processBtLiveSample(data.speed, (typeof data.incline === 'number' && !isNaN(data.incline)) ? data.incline : null, now);
+                }
             } catch (e) { /* pacchetto non riconosciuto: ignoro senza bloccare l'app */ }
+        }
+
+        // Ad ogni campione di velocità reale ricevuto dal tapis: se il tapis inizia
+        // a muoversi avvia automaticamente l'Allenamento Manuale (M1) a tempo libero,
+        // integra la distanza/calorie percorse dal campione precedente a questo, e
+        // rileva la fine allenamento quando la velocità resta a 0 per qualche secondo.
+        function processBtLiveSample(speedKmh, inclinePctOrNull, nowTs) {
+            if (inclinePctOrNull !== null) btLiveIncline = inclinePctOrNull;
+
+            if (!btLiveMode) {
+                if (speedKmh > 0.3) startBtLiveWorkout(nowTs);
+                else { btLiveLastSpeed = speedKmh; return; }
+            }
+
+            if (btLiveLastTs !== null) {
+                const dtHours = (nowTs - btLiveLastTs) / 3600000;
+                const dtMin = dtHours * 60;
+                if (dtHours > 0 && dtHours < 0.05) { // scarta gap anomali (>3min) es. riconnessioni
+                    btLiveDistanceKm += btLiveLastSpeed * dtHours;
+                    btLiveKcal += kcalPerMinuteFor(btLiveLastSpeed, btLiveIncline, loadProfile().weightKg) * dtMin;
+                }
+            }
+            btLiveLastTs = nowTs;
+            btLiveLastSpeed = speedKmh;
+
+            if (speedKmh < 0.3) {
+                if (btLiveZeroSince === null) btLiveZeroSince = nowTs;
+                else if (nowTs - btLiveZeroSince >= BT_STOP_GRACE_MS) { endBtLiveWorkout(); return; }
+            } else {
+                btLiveZeroSince = null;
+            }
+
+            updateBtLiveDashboard();
+        }
+
+        function startBtLiveWorkout(nowTs) {
+            btLiveMode = true;
+            btLiveStartTs = nowTs;
+            btLiveLastTs = nowTs;
+            btLiveDistanceKm = 0;
+            btLiveKcal = 0;
+            btLiveZeroSince = null;
+
+            // passa in automatico all'Allenamento Manuale, a tempo libero
+            const select = document.getElementById('program-select');
+            select.value = 'M1';
+            loadProgram();
+
+            document.body.classList.add('bt-live-active');
+            document.getElementById('label-total-time').innerText = 'Tempo Trascorso (Bluetooth)';
+            document.getElementById('label-segment').innerText = 'Modalità';
+            document.getElementById('live-segment').innerText = 'Live BT';
+            document.getElementById('label-seg-time').innerText = 'Distanza';
+            document.getElementById('btn-bt-stop').style.display = 'block';
+
+            document.getElementById('status-tag').innerText = 'Bluetooth Live';
+            document.getElementById('status-tag').style.color = '#22c55e';
+            setBtStatus('🏃 Movimento rilevato: allenamento a tempo libero avviato in automatico.');
+
+            if (btLiveTimerId) clearInterval(btLiveTimerId);
+            btLiveTimerId = setInterval(updateBtLiveDashboard, 500);
+        }
+
+        function updateBtLiveDashboard() {
+            if (!btLiveMode) return;
+            const elapsedSec = Math.floor((Date.now() - btLiveStartTs) / 1000);
+            document.getElementById('live-total-time').innerText = formatTime(elapsedSec);
+            document.getElementById('live-seg-time').innerText = btLiveDistanceKm.toFixed(2) + ' km';
+            document.getElementById('live-speed').innerText = btLiveLastSpeed.toFixed(1);
+            document.getElementById('live-incline').innerText = btLiveIncline.toFixed(1) + '%';
+        }
+
+        function endBtLiveWorkout() {
+            if (!btLiveMode) return;
+            clearInterval(btLiveTimerId);
+            const elapsedSec = Math.max(1, Math.floor((Date.now() - btLiveStartTs) / 1000));
+
+            if (elapsedSec >= 30 && btLiveDistanceKm > 0) {
+                const avgSpeed = btLiveDistanceKm / (elapsedSec / 3600);
+                const entry = {
+                    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+                    dateISO: new Date().toISOString(),
+                    program: 'Bluetooth Live',
+                    durationSec: elapsedSec,
+                    km: btLiveDistanceKm,
+                    kcal: btLiveKcal,
+                    avgSpeed: avgSpeed,
+                    complete: true
+                };
+                const history = loadHistory();
+                history.push(entry);
+                saveHistoryData(history);
+                renderHistoryViews();
+            }
+
+            btLiveMode = false;
+            document.body.classList.remove('bt-live-active');
+            document.getElementById('label-total-time').innerText = 'Tempo Rimanente Totale';
+            document.getElementById('label-segment').innerText = 'Segmento';
+            document.getElementById('label-seg-time').innerText = 'Rim. Segm.';
+            document.getElementById('btn-bt-stop').style.display = 'none';
+            setBtStatus('✅ Allenamento Bluetooth registrato: ' + btLiveDistanceKm.toFixed(2) + ' km in ' + formatTime(elapsedSec) + '.');
+            resetTimer();
         }
 
         // Mappatura diretta delle 9 combinazioni per l'Allenamento Manuale (M1).
@@ -1450,6 +1597,8 @@
         const PROFILE_KEY = 'bcube_profile';
         const HISTORY_KEY = 'bcube_history';
         let summaryPeriod = 'week';
+        let customStart = null;
+        let customEnd = null;
 
         function loadProfile() {
             try {
@@ -1509,24 +1658,25 @@
 
         // Calorie: formule metaboliche ACSM (American College of Sports Medicine),
         // le stesse usate dai tapis roulant professionali — basate su velocità,
-        // pendenza e peso corporeo reale per ogni segmento. Senza peso impostato
-        // uso 70 kg come stima generica (dichiarata nell'interfaccia).
-        function computeCaloriesKcal(program, elapsedSec, segDurSec, weightKg) {
+        // pendenza e peso corporeo reale. Senza peso impostato uso 70 kg come
+        // stima generica (dichiarata nell'interfaccia).
+        function kcalPerMinuteFor(speedKmh, inclinePct, weightKg) {
             const w = weightKg || 70;
+            const speedMmin = speedKmh * 1000 / 60;
+            const grade = inclinePct / 100;
+            const vo2 = speedKmh <= 7
+                ? 0.1 * speedMmin + 1.8 * speedMmin * grade + 3.5   // equazione ACSM camminata
+                : 0.2 * speedMmin + 0.9 * speedMmin * grade + 3.5;  // equazione ACSM corsa
+            return (vo2 * w) / 1000 * 5; // 1 L di O2 ≈ 5 kcal
+        }
+
+        function computeCaloriesKcal(program, elapsedSec, segDurSec, weightKg) {
             let kcal = 0;
             let remaining = elapsedSec;
             for (let i = 0; i < 10 && remaining > 0; i++) {
                 const segSec = Math.min(segDurSec, remaining);
                 const minutes = segSec / 60;
-                const speedKmh = program.speed[i];
-                const inclinePct = program.incline[i];
-                const speedMmin = speedKmh * 1000 / 60;
-                const grade = inclinePct / 100;
-                const vo2 = speedKmh <= 7
-                    ? 0.1 * speedMmin + 1.8 * speedMmin * grade + 3.5   // equazione ACSM camminata
-                    : 0.2 * speedMmin + 0.9 * speedMmin * grade + 3.5;  // equazione ACSM corsa
-                const kcalPerMin = (vo2 * w) / 1000 * 5; // 1 L di O2 ≈ 5 kcal
-                kcal += kcalPerMin * minutes;
+                kcal += kcalPerMinuteFor(program.speed[i], program.incline[i], weightKg) * minutes;
                 remaining -= segDurSec;
             }
             return kcal;
@@ -1595,9 +1745,30 @@
 
         function setSummaryPeriod(p) {
             summaryPeriod = p;
-            ['week', 'month', 'year', 'all'].forEach(k =>
-                document.getElementById('period-' + k).classList.toggle('active', k === p)
-            );
+            ['week', 'month', 'year', 'all', 'custom'].forEach(k => {
+                const el = document.getElementById('period-' + k);
+                if (el) el.classList.toggle('active', k === p);
+            });
+            document.getElementById('custom-period-form').style.display = 'none';
+            renderHistoryViews();
+        }
+
+        function showCustomPeriodPicker() {
+            ['week', 'month', 'year', 'all'].forEach(k => document.getElementById('period-' + k).classList.remove('active'));
+            document.getElementById('period-custom').classList.add('active');
+            document.getElementById('custom-period-form').style.display = 'flex';
+        }
+
+        function applyCustomPeriod() {
+            const s = document.getElementById('custom-date-start').value;
+            const e = document.getElementById('custom-date-end').value;
+            if (!s || !e) { alert('Seleziona sia la data iniziale che quella finale.'); return; }
+            const start = new Date(s + 'T00:00:00');
+            const end = new Date(e + 'T23:59:59.999');
+            if (end < start) { alert('La data finale deve essere dopo quella iniziale.'); return; }
+            customStart = start;
+            customEnd = end;
+            summaryPeriod = 'custom';
             renderHistoryViews();
         }
 
@@ -1605,6 +1776,7 @@
             const d = new Date(dateISO);
             const now = new Date();
             if (period === 'all') return true;
+            if (period === 'custom') return customStart && customEnd && d >= customStart && d <= customEnd;
             if (period === 'year') return d.getFullYear() === now.getFullYear();
             if (period === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
             if (period === 'week') {
@@ -1673,6 +1845,40 @@
             return buckets;
         }
 
+        function buildCustomBuckets(history, start, end) {
+            const spanDays = (end - start) / (1000 * 3600 * 24);
+            const buckets = [];
+            if (spanDays <= 31) {
+                let cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+                while (cur < end) {
+                    const next = new Date(cur); next.setDate(cur.getDate() + 1);
+                    buckets.push({ start: new Date(cur), end: next, label: cur.getDate() + '/' + (cur.getMonth() + 1), km: 0 });
+                    cur = next;
+                }
+            } else if (spanDays <= 366) {
+                let cur = getWeekStart(start);
+                while (cur < end) {
+                    const next = new Date(cur); next.setDate(cur.getDate() + 7);
+                    buckets.push({ start: new Date(cur), end: next, label: cur.getDate() + '/' + (cur.getMonth() + 1), km: 0 });
+                    cur = next;
+                }
+            } else {
+                let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+                while (cur < end) {
+                    const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                    buckets.push({ start: new Date(cur), end: next, label: cur.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' }), km: 0 });
+                    cur = next;
+                }
+            }
+            history.forEach(e => {
+                const d = new Date(e.dateISO);
+                for (const b of buckets) {
+                    if (d >= b.start && d < b.end) { b.km += e.km; break; }
+                }
+            });
+            return buckets;
+        }
+
         function renderTrendChart() {
             const history = loadHistory();
             const mount = document.getElementById('trend-chart-mount');
@@ -1680,7 +1886,9 @@
                 mount.innerHTML = '<div class="session-meta">Ancora nessun dato da mostrare: completa un allenamento.</div>';
                 return;
             }
-            const buckets = buildBuckets(history, summaryPeriod);
+            const buckets = (summaryPeriod === 'custom' && customStart && customEnd)
+                ? buildCustomBuckets(history, customStart, customEnd)
+                : buildBuckets(history, summaryPeriod);
             const maxKm = Math.max(1, ...buckets.map(b => b.km));
             const barW = 28, gap = 46;
             const w = Math.max(300, buckets.length * gap + 10);
@@ -1717,10 +1925,29 @@
             }).join('');
         }
 
+        function renderMiniSessionList() {
+            const mount = document.getElementById('mini-session-list');
+            if (!mount) return;
+            const history = loadHistory().slice().sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO)).slice(0, 5);
+            if (history.length === 0) {
+                mount.innerHTML = '<div class="session-meta">Nessuna sessione ancora.</div>';
+                return;
+            }
+            mount.innerHTML = history.map(e => {
+                const d = new Date(e.dateISO);
+                const dateStr = d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+                return `<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border-color);">
+                    <span class="session-meta">${dateStr} · ${e.program}</span>
+                    <span>${e.km.toFixed(1)} km</span>
+                </div>`;
+            }).join('');
+        }
+
         function renderHistoryViews() {
             renderSummary();
             renderTrendChart();
             renderSessionList();
+            renderMiniSessionList();
         }
 
         function handleResetButtonClick() {
