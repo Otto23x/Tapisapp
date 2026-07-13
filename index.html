@@ -742,6 +742,8 @@
         <div class="header-nav">
             <button id="nav-workout" class="active" onclick="switchView('workout')">🏃 Run</button>
             <button id="nav-history" onclick="switchView('history')">📊 Storico</button>
+            <button id="nav-tracker" onclick="switchView('tracker')">⏺ Registra</button>
+            <button id="nav-routes" onclick="switchView('routes')">🛣️ Percorsi</button>
             <button id="nav-io" onclick="switchView('io')">👤 Io</button>
             <button id="nav-support" onclick="switchView('support')" title="Supporto" aria-label="Supporto">❓</button>
         </div>
@@ -3725,5 +3727,1843 @@ REGOLE:
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
     </script>
+<style>
+/* ── Modulo Simmy in Tappy: stile scoped .simx sui token di Tappy ── */
+.simx { max-width: 1100px; margin: 0 auto; }
+.simx .card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+.simx .card h2 { font-size: 15px; margin-bottom: 8px; color: var(--text-main); }
+.simx .card h2 .tag { font-size: 10px; background: var(--bg-primary); color: var(--text-muted); border-radius: 10px; padding: 2px 8px; vertical-align: middle; margin-left: 6px; font-weight: 600; }
+.simx .hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.simx .sep { border: 0; border-top: 1px solid var(--border-color); margin: 10px 0; }
+.simx label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.simx input, .simx select { width: 100%; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 8px; padding: 10px; font-size: 14px; margin: 4px 0 8px; }
+.simx .btn-row { display: flex; gap: 8px; flex-wrap: wrap; } .simx .btn-row > * { flex: 1; }
+.simx button.primary { background: var(--accent-orange); color: #0f172a; border: 0; border-radius: 10px; padding: 13px; font-size: 15px; font-weight: 800; cursor: pointer; width: 100%; }
+.simx button.warn { background: #ef4444; color: #fff; border: 0; border-radius: 10px; padding: 13px; font-size: 15px; font-weight: 800; cursor: pointer; width: 100%; }
+.simx button.ghost { background: var(--bg-primary); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.simx button.ghost.small { padding: 7px 10px; font-size: 12px; }
+.simx button.lane { background: var(--accent-orange); color: #0f172a; border: 0; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 800; cursor: pointer; }
+.simx .tel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.simx .tel-cell { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 8px; text-align: center; }
+.simx .tel-cell .v { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 26px; font-weight: 700; color: var(--text-main); }
+.simx .tel-cell .v.big { font-size: 34px; color: var(--accent-blue); }
+.simx .tel-cell .l { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-top: 2px; }
+.simx .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.simx .kpi { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 6px; text-align: center; }
+.simx .kpi .v { font-family: ui-monospace, Menlo, monospace; font-size: 15px; font-weight: 700; color: var(--accent-blue); }
+.simx .kpi .l { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); margin-top: 2px; }
+.simx .route-item { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 11px 12px; margin-bottom: 8px; cursor: pointer; }
+.simx .route-item .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.simx .route-item .name { font-weight: 700; font-size: 14px; color: var(--text-main); }
+.simx .route-item .meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; font-family: ui-monospace, monospace; }
+.simx .badge { font-size: 10px; border-radius: 8px; padding: 2px 7px; font-weight: 700; }
+.simx .badge.indoor { background: rgba(56,189,248,.12); color: var(--accent-blue); border: 1px solid rgba(56,189,248,.4); }
+.simx canvas.chart { width: 100%; border-radius: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); }
+.simx .ai-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; margin-top: 8px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; color: var(--text-main); }
+.simx .rec-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ef4444; margin-right: 5px; animation: simpulse 1s infinite; }
+@keyframes simpulse { 50% { opacity: .35; } }
+#replay-overlay { position: fixed; inset: 0; background: #0a0c0e; z-index: 999; display: none; flex-direction: column; }
+#replay-overlay.on { display: flex; }
+#replay-canvas { flex: 1; width: 100%; }
+#replay-hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.hud-box { background: rgba(15,23,42,.78); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 12px; text-align: center; }
+.hud-box .v { font-family: ui-monospace, monospace; font-size: 22px; font-weight: 800; color: var(--accent-blue); }
+.hud-box .l { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+#replay-controls { position: absolute; bottom: 14px; left: 12px; right: 12px; display: flex; gap: 8px; }
+#replay-controls button { flex: 1; }
+#replay-progress { position: absolute; bottom: 66px; left: 12px; right: 12px; height: 5px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden; }
+#replay-progress > div { height: 100%; width: 0%; background: var(--accent-orange); }
+</style>
+
+<!-- ═══════════ SIMMY IN TAPPY · VISTA: REGISTRA (tracker corsa) ═══════════ -->
+<div class="view simx" id="view-tracker">
+    <div class="card">
+        <h2>⏺ Registra una corsa reale <span class="tag">GPS + sensori</span></h2>
+        <p class="hint">Corri all'aperto col telefono: GPS per tracciato e altimetria, accelerometro per superficie, cadenza e falcata. Il percorso diventa un gemello digitale da rigiocare come <b>sfida sul tapis</b>. Lo schermo resta acceso (wake lock) finché non premi Stop: è ciò che tiene vivo il GPS.</p>
+    </div>
+    <div class="card">
+        <div class="tel-grid">
+            <div class="tel-cell" style="grid-column:1/-1"><div class="v big" id="tel-speed">0.0</div><div class="l">km/h</div></div>
+            <div class="tel-cell"><div class="v" id="tel-dist">0.00</div><div class="l">km</div></div>
+            <div class="tel-cell"><div class="v" id="tel-time">00:00</div><div class="l">tempo</div></div>
+            <div class="tel-cell"><div class="v" id="tel-elev">0</div><div class="l">D+ m</div></div>
+            <div class="tel-cell"><div class="v" id="tel-rough">0.0</div><div class="l">superficie 0-10</div></div>
+            <div class="tel-cell"><div class="v" id="tel-slope">0%</div><div class="l">pendenza</div></div>
+            <div class="tel-cell"><div class="v" id="tel-latg" style="font-size:20px">—</div><div class="l" id="tel-latg-l">cadenza</div></div>
+        </div>
+        <div style="height:8px"></div>
+        <div style="position:relative;height:220px;border-radius:8px;overflow:hidden;border:1px solid var(--border-color);background:var(--bg-primary)">
+            <canvas class="chart" id="live-map" height="220" style="height:220px;border:0"></canvas>
+            <div id="live-gmap" style="display:none;position:absolute;inset:0"></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="btn-row">
+            <button class="primary" id="rec-btn" onclick="toggleRec()">▶ Avvia registrazione</button>
+            <button class="warn" id="stop-btn" onclick="stopRec()" style="display:none">■ Ferma e salva</button>
+        </div>
+        <div style="height:8px"></div>
+        <p class="hint" id="rec-status">In attesa. Su iPhone verrà chiesto il permesso ai sensori di movimento.</p>
+    </div>
+    <div class="card">
+        <h2>Prova senza uscire <span class="tag">DEMO</span></h2>
+        <div class="btn-row">
+            <button class="ghost" onclick="genDemo('corsa')">🏃 Demo parco 6 km</button>
+            <button class="ghost" onclick="genDemo('rampa')">🏔️ Demo rampa 18% (test tapis)</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ SIMMY IN TAPPY · VISTA: PERCORSI + TAPIS ═══════════ -->
+<div class="view simx" id="view-routes">
+    <div class="card">
+        <h2>🛣️ I tuoi percorsi</h2>
+        <p class="hint">Tocca un percorso per il gemello digitale: altimetria, superficie, replay e sfida sul tapis.</p>
+        <div style="height:8px"></div>
+        <div id="route-list"></div>
+        <hr class="sep">
+        <div class="btn-row">
+            <div><label>Importa .json</label><input type="file" id="import-route-file" accept="application/json" onchange="importRouteFile(this)"></div>
+            <div><label>Importa .gpx (Strava/Garmin/Komoot)</label><input type="file" id="import-gpx-file" accept=".gpx,application/gpx+xml,application/xml" onchange="importGpxFile(this)"></div>
+        </div>
+    </div>
+    <div class="card" id="route-detail" style="display:none">
+        <h2 id="rd-name">—</h2>
+        <p class="hint" id="rd-meta"></p>
+        <hr class="sep">
+        <label>Tracciato</label>
+        <div style="position:relative;height:220px;border-radius:8px;overflow:hidden;border:1px solid var(--border-color);background:var(--bg-primary)">
+            <canvas class="chart" id="rd-map" height="220" style="height:220px;border:0"></canvas>
+            <div id="rd-gmap" style="display:none;position:absolute;inset:0"></div>
+        </div>
+        <label>Profilo altimetrico</label>
+        <canvas class="chart" id="rd-elev" height="110"></canvas>
+        <label>Velocità</label>
+        <canvas class="chart" id="rd-speed" height="90"></canvas>
+        <label>Superficie (verde = asfalto liscio → rosso = fondo con buche)</label>
+        <canvas class="chart" id="rd-rough" height="34"></canvas>
+        <hr class="sep">
+        <div class="kpi-grid" id="rd-kpi"></div>
+        <hr class="sep">
+        <div class="btn-row">
+            <button class="lane" onclick="startReplay(RD_ID)">🎮 Replay / Sfida sul tapis</button>
+        </div>
+        <div style="height:8px"></div>
+        <div class="btn-row">
+            <button class="ghost small" onclick="exportRoute(RD_ID)">⬇️ JSON</button>
+            <button class="ghost small" onclick="exportRouteGpx(RD_ID)">📍 GPX</button>
+            <button class="ghost small" onclick="refineElevation(RD_ID)">🛰️ Altimetria Google</button>
+            <button class="ghost small" onclick="renameRoute(RD_ID)">✏️ Rinomina</button>
+            <button class="ghost small" style="color:#ef4444" onclick="deleteRoute(RD_ID)">🗑️ Elimina</button>
+        </div>
+        <div id="rd-airesult"></div>
+    </div>
+    <div class="card">
+        <h2>Sessioni indoor e sfide</h2>
+        <div id="sim-indoor-list"></div>
+    </div>
+    <div class="card">
+        <h2>Stato di forma — corsa <span class="tag">SFS 0–100</span></h2>
+        <div id="sfs-box"></div>
+        <p class="hint" style="margin-top:6px">Capacità (velocità piano-equivalenti Minetti, pesate sul recente) + volume 28 gg + costanza + progresso + composizione corporea (dal profilo in Io). Entra anche nel contesto del Coach AI di Tappy.</p>
+        <div style="height:6px"></div>
+        <button class="ghost small" onclick="aiFitness()">🤖 Analisi AI dello stato di forma</button>
+        <p class="hint" id="sfs-ai-status"></p>
+        <div id="sfs-ai"></div>
+    </div>
+    <div class="card">
+        <h2>Tapis roulant <span class="tag">Bluetooth FTMS · modalità sfida</span></h2>
+        <p class="hint">Durante il replay Tappy comanda il tapis sul benchmark: <b>pendenza bloccata</b> (anti-cheat: se la cambi dalla console viene ripristinata) e <b>velocità regolabile</b> con −/＋. Pendenze fuori range → velocità compensata a pari sforzo (Minetti, salite e discese); fattore di equità fisica vs il creatore del percorso. Il tuo tapis lavora a passi di <b>0,1 km/h</b> e <b>1%</b> di pendenza: sono i valori predefiniti, sempre incrociati con quanto letto via Bluetooth. Il parsing dei dati ora segue i flag FTMS: velocità <b>e pendenza</b> arrivano corrette (niente più 256%).</p>
+        <hr class="sep">
+        <label>Marca e modello</label>
+        <input id="m-model" placeholder="es. Bcube A8 Plus">
+        <div class="btn-row">
+            <button class="ghost small" onclick="aiMachineProfile()">🤖 Rileva parametri con AI</button>
+            <button class="ghost small" onclick="saveMachineForm()">Salva profilo</button>
+        </div>
+        <div class="btn-row">
+            <div><label>Vel max km/h</label><input id="m-vmax" type="number" placeholder="16"></div>
+            <div><label>Vel min km/h</label><input id="m-vmin" type="number" placeholder="1"></div>
+            <div><label>Passo vel</label><input id="m-vstep" type="number" placeholder="0.1"></div>
+        </div>
+        <div class="btn-row">
+            <div><label>Incl. max %</label><input id="m-imax" type="number" placeholder="15"></div>
+            <div><label>Passo incl. %</label><input id="m-istep" type="number" placeholder="1"></div>
+            <div></div>
+        </div>
+        <p class="hint" id="m-status"></p>
+        <hr class="sep">
+        <div class="btn-row">
+            <button class="ghost" onclick="btConnect(false)">🔗 Connetti tapis</button>
+            <button class="ghost small" onclick="btConnect(true)">🔍 Tutti i dispositivi</button>
+        </div>
+        <div style="height:6px"></div>
+        <div class="btn-row">
+            <button class="ghost small" onclick="btConnectVirtual()">🧪 Tapis virtuale (test)</button>
+            <button class="ghost small" onclick="btDisconnect()">Disconnetti</button>
+        </div>
+        <div style="height:6px"></div>
+        <div class="btn-row" id="sbt-testrow" style="display:none">
+            <button class="ghost small" onclick="btSetIncline(0)">Incl 0%</button>
+            <button class="ghost small" onclick="btSetIncline(3)">Incl 3%</button>
+            <button class="ghost small" onclick="btSetIncline(6)">Incl 6%</button>
+            <button class="ghost small" onclick="btSetSpeed(2)">Vel 2</button>
+            <button class="ghost small" onclick="btSetSpeed(5)">Vel 5</button>
+        </div>
+        <div id="sbt-beltrow" style="display:none" class="hint">Nastro: <span id="sbt-belt" style="font-family:monospace;color:var(--accent-blue)">0.0</span> km/h · <span id="sbt-lastincl"></span></div>
+        <p class="hint" id="sbt-status" style="margin-top:6px">Non connesso.</p>
+    </div>
+    <div class="card">
+        <h2>Google Maps <span class="tag">satellite + altimetria terreno</span></h2>
+        <p class="hint">Con una chiave Maps JavaScript + Elevation API: mappa satellitare live durante la registrazione e altimetria ricalcolata dal modello del terreno (più precisa del GPS, applicata automaticamente al salvataggio).</p>
+        <label>Chiave API</label><input id="maps-key" type="password" placeholder="AIza…">
+        <button class="ghost" onclick="saveMapsKey()">Salva chiave</button>
+        <p class="hint" id="maps-status"></p>
+        <details style="margin-top:8px"><summary style="cursor:pointer;font-size:13px;color:var(--accent-blue);font-weight:600">📖 Come ottenere la chiave Google Maps (guida)</summary>
+        <p class="hint" style="margin-top:8px">
+1. Vai su <b>console.cloud.google.com</b> e accedi con un account Google.<br>
+2. In alto crea un <b>nuovo progetto</b> (es. "Simmy") e selezionalo.<br>
+3. Menu → <b>API e servizi → Libreria</b>: cerca e premi <b>Abilita</b> su <b>Maps JavaScript API</b> e su <b>Elevation API</b> (servono entrambe: la prima per la mappa satellitare, la seconda per l'altimetria del terreno).<br>
+4. Menu → <b>API e servizi → Credenziali → + Crea credenziali → Chiave API</b>. Copia la chiave (inizia con AIza…) e incollala qui sopra.<br>
+5. Consigliato: apri la chiave e sotto <b>Limitazioni applicazione → Siti web (referrer HTTP)</b> aggiungi l'indirizzo dove pubblichi l'app (es. <b>https://tuonome.github.io/*</b>). Sotto <b>Limitazioni API</b> spunta solo Maps JavaScript API ed Elevation API. Così la chiave non è usabile altrove.<br>
+6. Google offre un credito mensile gratuito ampio: per uso personale non paghi nulla, ma la carta va comunque associata al progetto (Fatturazione).<br><br>
+<b>Nota:</b> le API funzionano solo da <b>https://</b> (GitHub Pages va bene), non da file:// aperto in locale. Senza chiave l'app resta pienamente funzionante con la mini-mappa disegnata e l'altimetria GPS.</p>
+        </details>
+    </div>
+</div>
+
+<!-- overlay pre-partenza, risultato e replay -->
+<div id="prefly-overlay" class="simx" style="position:fixed;inset:0;background:rgba(10,12,14,.94);z-index:998;display:none;overflow-y:auto;padding:14px">
+    <div class="card" style="max-width:560px;margin:20px auto">
+        <h2>🔧 Percorso riqualificato per il tuo tapis</h2>
+        <p class="hint" id="pf-summary"></p>
+        <div style="height:8px"></div>
+        <label>Pendenza — originale vs adattata al tapis</label>
+        <canvas class="chart" id="pf-slope" height="110"></canvas>
+        <label>Velocità — benchmark vs target compensato</label>
+        <canvas class="chart" id="pf-speed" height="110"></canvas>
+        <p class="hint" id="pf-ai"></p>
+        <div style="height:10px"></div>
+        <div class="btn-row">
+            <button class="primary" onclick="preflyConfirm()">✅ Conferma e parti</button>
+            <button class="ghost" onclick="preflyCancel()">Annulla</button>
+        </div>
+    </div>
+</div>
+<div id="result-overlay" class="simx" style="position:fixed;inset:0;background:rgba(10,12,14,.94);z-index:998;display:none;overflow-y:auto;padding:14px">
+    <div class="card" style="max-width:560px;margin:20px auto">
+        <h2>🏁 Risultato sfida</h2>
+        <div class="kpi-grid" id="res-kpi"></div>
+        <div style="height:8px"></div>
+        <label>Velocità sulla distanza — target vs prestazione reale</label>
+        <canvas class="chart" id="res-chart" height="150"></canvas>
+        <div style="height:8px"></div>
+        <button class="ghost" onclick="aiChallenge()">🤖 Analisi AI del risultato (fisico + stato di forma)</button>
+        <p class="hint" id="res-ai-status"></p>
+        <div id="res-ai"></div>
+        <div style="height:8px"></div>
+        <button class="warn" onclick="document.getElementById('result-overlay').style.display='none'">Chiudi</button>
+    </div>
+</div>
+<div id="replay-overlay" class="simx">
+    <canvas id="replay-canvas"></canvas>
+    <div id="replay-hud">
+        <div class="hud-box"><div class="v" id="rp-speed">0</div><div class="l">km/h</div></div>
+        <div class="hud-box"><div class="v" id="rp-slope">0%</div><div class="l">pendenza</div></div>
+        <div class="hud-box" id="rp-incl-box" style="display:none"><div class="v" id="rp-incl" style="color:var(--accent-orange)">0%</div><div class="l">tapis</div></div>
+        <div class="hud-box" id="rp-gap-box" style="display:none"><div class="v" id="rp-gap">±0s</div><div class="l">vs benchmark</div></div>
+        <div class="hud-box"><div class="v" id="rp-dist">0.0</div><div class="l">km</div></div>
+        <div class="hud-box"><div class="v" id="rp-time">00:00</div><div class="l">tempo</div></div>
+    </div>
+    <div id="rp-chal" style="position:absolute;bottom:92px;left:12px;right:12px;text-align:center;font-size:11px;color:var(--text-muted);font-family:monospace"></div>
+    <div id="replay-progress"><div id="rp-bar"></div></div>
+    <div id="replay-controls">
+        <button class="ghost" onclick="rpAdjust(-0.5)" id="rp-minus" style="display:none">−0.5</button>
+        <button class="ghost" onclick="rpAdjust(0.5)" id="rp-plus" style="display:none">＋0.5</button>
+        <button class="ghost" onclick="rpToggleView()" id="rp-view">2D</button>
+        <button class="ghost" onclick="replaySpeed()" id="rp-x">1×</button>
+        <button class="ghost" onclick="replayPause()" id="rp-pause">⏸ Pausa</button>
+        <button class="warn" onclick="endReplay(false)">✕ Esci</button>
+    </div>
+</div>
+
+<script>
+
+/* ═══════════════════════════════════════════════════════════════
+   STORAGE LOCALE — chiavi con prefisso simy_ (identificatori interni
+   invariati per compatibilità dati; il nome visibile è Simmy).
+   ═══════════════════════════════════════════════════════════════ */
+const K = { routes: 'bcube_routes', indoor: 'bcube_indoor', machine: 'bcube_machine', mapsKey: 'bcube_maps_key' };
+function loadJ(key, fb) { try { return JSON.parse(localStorage.getItem(key)) ?? fb; } catch (e) { return fb; } }
+function saveJ(key, v) { localStorage.setItem(key, JSON.stringify(v)); touchContent(); }
+const loadRoutes = () => loadJ(K.routes, []);
+const saveRoutes = r => saveJ(K.routes, r);
+const loadIndoor = () => loadJ(K.indoor, []);
+const saveIndoor = r => saveJ(K.indoor, r);
+
+/* Ponte con il profilo di Tappy (peso/altezza/massa grassa già presenti in Io) */
+function simProfile() {
+    const p = loadProfile();
+    return { name: p.name, weight: p.weightKg, height: p.heightCm, fatPct: p.bodyFatPct, mode: 'corsa' };
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const fmtTime = s => { s = Math.floor(s); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), sec = s%60;
+    return h ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; };
+const fmtDate = iso => new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+const MODE_ICO = { bici: '🚴', corsa: '🏃', auto: '🚗', indoor: '🎮' };
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const avgArr = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0;
+
+function hav(a, b) {
+    const R = 6371000, toR = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * toR, dLon = (b.lon - a.lon) * toR;
+    const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*toR) * Math.cos(b.lat*toR) * Math.sin(dLon/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+}
+function bearing(a, b) {
+    const toR = Math.PI / 180;
+    const y = Math.sin((b.lon-a.lon)*toR) * Math.cos(b.lat*toR);
+    const x = Math.cos(a.lat*toR)*Math.sin(b.lat*toR) - Math.sin(a.lat*toR)*Math.cos(b.lat*toR)*Math.cos((b.lon-a.lon)*toR);
+    return Math.atan2(y, x);
+}
+const angDiff = (a, b) => { let d = b - a; while (d > Math.PI) d -= 2*Math.PI; while (d < -Math.PI) d += 2*Math.PI; return d; };
+
+/* ── FISIOLOGIA: costo energetico C(i) della corsa in pendenza
+   (Minetti et al. 2002, J/kg/m, C(0)=3.6). Vale per salite E discese:
+   C(−4%) ≈ 2.9 → correre a 12 km/h al −4% costa come ~10 km/h in piano. */
+function minettiC(i) {
+    i = Math.max(-0.45, Math.min(0.45, i));
+    return Math.max(1.5, 155.4*i**5 - 30.4*i**4 - 43.3*i**3 + 46.3*i**2 + 19.5*i + 3.6);
+}
+/* ── FATTORE CORPO F (equità): rif. 72 kg / 172 cm / 78% massa magra.
+   F = (72/peso)^α(i) · (MM%/78)^0.20 · (172/h)^0.08, α(i)=0.15+2·max(0,i)≤0.45.
+   F<1 → fisico svantaggiato → target di velocità ridotto. Clamp [0.85,1.15]. */
+function bodyFactor(p, slope) {
+    p = p || {};
+    const P = +p.weight || 72, H = +p.height || 172;
+    let fat = 22;
+    if (p.fatPct !== undefined && p.fatPct !== null && p.fatPct !== '') fat = +p.fatPct;
+    else if (p.leanMass && P) fat = (1 - (+p.leanMass) / P) * 100;
+    const MM = Math.max(40, Math.min(95, 100 - fat));
+    const a = Math.min(0.45, 0.15 + 2.0 * Math.max(0, slope || 0));
+    const F = Math.pow(72 / P, a) * Math.pow(MM / 78, 0.20) * Math.pow(172 / H, 0.08);
+    return Math.max(0.85, Math.min(1.15, F));
+}
+
+/* ── SUPERFICIE ─────────────────────────────────────────────────
+   L'accelerometro misura le vibrazioni verticali, ma la stessa buca
+   "suona" diversa a piedi, in bici o in auto (sospensioni, passo,
+   oscillazione del corpo). Ogni attività ha quindi la SUA taratura:
+   base = rumore fisiologico da sottrarre, scale = m/s² per punto.
+   L'indice normalizzato 0–10 è così confrontabile tra attività e
+   viene tradotto in classi di superficie leggibili.               */
+const MODE_CAL = { bici:  { base: 0.30, scale: 0.37 },
+                   corsa: { base: 2.60, scale: 0.90 },   // la falcata genera 2–3 m/s² di suo
+                   auto:  { base: 0.12, scale: 0.22 } }; // le sospensioni smorzano molto
+const SURFACES = [
+    [1.5, 'asfalto liscio',    '#5adca0'],
+    [3.0, 'asfalto normale',   '#8fd07a'],
+    [4.5, 'asfalto rugoso',    '#ffc93c'],
+    [6.0, 'sterrato compatto', '#ffa53c'],
+    [8.0, 'sterrato sconnesso','#ff7a4d'],
+    [99,  'fondo con buche',   '#ff6b5e']
+];
+function surfaceClass(rg) { for (const s of SURFACES) if (rg < s[0]) return s; return SURFACES[SURFACES.length-1]; }
+const surfaceName = rg => surfaceClass(rg)[1];
+const roughColor = rg => surfaceClass(rg)[2];
+
+/* ═══════════════════════════════════════════════════════════════
+   MOTORE DI REGISTRAZIONE
+   Punto: [t, lat, lon, alt, v(m/s), rg(0-10), x]
+     x = cadenza spm (corsa) · G longitudinale (auto/bici) · null
+   - GPS: watchPosition alta precisione, campione ≥1 s e ≥2 m
+   - PENDENZA: dall'altitudine (GPS in diretta; se è configurata la
+     chiave Google Maps, al salvataggio l'altimetria viene ricalcolata
+     dal modello del terreno di Google, molto più preciso del GPS)
+   - G LONGITUDINALE: da Δv/Δt del GPS (frenate/accelerazioni) —
+     non serve l'accelerometro né conoscere l'orientamento del telefono
+   - G LATERALE: v · Δheading/Δt (severità curve)
+   - CADENZA (corsa): conteggio dei picchi di impatto → passi/min,
+     falcata = velocità / cadenza
+   - WAKE LOCK: lo schermo resta acceso finché non fermi tu la
+     registrazione (i browser congelano il GPS a schermo spento:
+     tenerlo acceso è l'unico modo affidabile in una web app)
+   ═══════════════════════════════════════════════════════════════ */
+let REC = null;
+const MODE = 'corsa';   // in Tappy il tracker è dedicato alla corsa
+let WAKE = null;
+
+/* ── Sensori di movimento: buffer condiviso ── */
+let MOTION_BUF = [];          // scarti |a|−g per l'indice superficie
+let STEP = { last: 0, count: 0, above: false };   // rilevatore passi (corsa)
+let GRAV = { x: 0, y: 0, z: 9.81 };               // gravità filtrata (bolla)
+function onMotion(e) {
+    const a = e.accelerationIncludingGravity;
+    if (!a || a.x === null) return;
+    GRAV.x = GRAV.x * 0.95 + a.x * 0.05;
+    GRAV.y = GRAV.y * 0.95 + a.y * 0.05;
+    GRAV.z = GRAV.z * 0.95 + a.z * 0.05;
+    const mag = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+    const dev = mag - 9.81;
+    MOTION_BUF.push(Math.abs(dev));
+    if (MOTION_BUF.length > 600) MOTION_BUF.shift();
+    // passi: isteresi sui picchi d'impatto (>2.5 m/s² sopra g, min 250 ms tra passi)
+    const now = Date.now();
+    if (dev > 2.5 && !STEP.above && now - STEP.last > 250) { STEP.count++; STEP.last = now; STEP.above = true; }
+    if (dev < 1.0) STEP.above = false;
+    updateBubble();
+}
+function drainRough(mode) {
+    const cal = MODE_CAL[mode] || MODE_CAL.bici;
+    if (!MOTION_BUF.length) return 0;
+    const rms = Math.sqrt(MOTION_BUF.reduce((s, v) => s + v*v, 0) / MOTION_BUF.length);
+    MOTION_BUF = [];
+    return Math.min(10, Math.max(0, (rms - cal.base) / cal.scale));
+}
+function drainSteps(dt) { const c = STEP.count; STEP.count = 0; return dt > 0 ? (c / dt) * 60 : 0; }
+
+/* ── CALIBRAZIONE A BOLLA (auto e bici) ─────────────────────────
+   Il telefono va su un supporto rigido, il più in piano possibile:
+   la bolla mostra l'assetto in tempo reale; "Calibra" memorizza il
+   residuo come zero. Serve a rendere pulito l'indice superficie
+   (un telefono che balla inventa buche). Le forze G invece arrivano
+   dal GPS e non dipendono dall'orientamento del telefono.          */
+let CAL = { on: false, ok: false };
+function updateBubble() {}
+async function acquireWake() {
+    try { if ('wakeLock' in navigator) { WAKE = await navigator.wakeLock.request('screen'); } } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (REC && !REC.paused && document.visibilityState === 'visible') { acquireWake(); drawLiveMap(true); } });
+
+async function toggleRec() {
+    if (REC) {
+        REC.paused = !REC.paused;
+        document.getElementById('rec-btn').textContent = REC.paused ? '▶ Riprendi' : '⏸ Pausa';
+        document.getElementById('rec-status').innerHTML = REC.paused ? 'In pausa.' : '<span class="rec-dot"></span>Registrazione in corso…';
+        if (!REC.paused) acquireWake();
+        return;
+    }
+    if (!navigator.geolocation) return alert('GPS non disponibile su questo dispositivo/browser.');
+    try {
+        if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+            const r = await DeviceMotionEvent.requestPermission();
+            if (r !== 'granted') alert('Senza sensori di movimento l\'indice superficie resterà a 0; il GPS funziona comunque.');
+        }
+    } catch (e) {}
+    window.addEventListener('devicemotion', onMotion);
+    await acquireWake();
+    STEP = { last: 0, count: 0, above: false };
+    REC = { pts: [], dist: 0, dplus: 0, dminus: 0, startT: Date.now(), paused: false, last: null, lastHd: null,
+            vmax: 0, latg: 0, longg: 0, accSum: 0, accN: 0, lastDraw: 0, lastStepT: Date.now() };
+    REC.watchId = navigator.geolocation.watchPosition(onFix, err => {
+        document.getElementById('rec-status').textContent = 'Errore GPS: ' + (err.message || err.code) + ' — controlla i permessi di localizzazione.';
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+    REC.timer = setInterval(recTick, 1000);
+    document.getElementById('rec-btn').textContent = '⏸ Pausa';
+    document.getElementById('stop-btn').style.display = 'block';
+    document.getElementById('rec-status').innerHTML = '<span class="rec-dot"></span>Registrazione in corso… ricerca del segnale GPS. Lo schermo resterà acceso (wake lock) finché non fermi: è ciò che tiene vivo il GPS.';
+    liveMapInit();
+}
+
+function onFix(pos) {
+    const c = pos.coords;
+    document.getElementById('gps-pill').textContent = 'GPS ±' + Math.round(c.accuracy) + 'm';
+    if (!REC || REC.paused) return;
+    const now = pos.timestamp || Date.now();
+    const p = { t: now, lat: c.latitude, lon: c.longitude, alt: c.altitude, acc: c.accuracy };
+    let extra = null;
+    if (REC.last) {
+        const dt = (now - REC.last.t) / 1000;
+        const d = hav(REC.last, p);
+        if (dt < 1 || d < 2) return;
+        if (c.accuracy > 35) return;
+        REC.dist += d;
+        p.v = (c.speed !== null && c.speed >= 0) ? c.speed : d / dt;
+        p.hd = bearing(REC.last, p);
+        // G longitudinale da Δv/Δt del GPS (frenata negativa, accelerazione positiva)
+        REC.longg = ((p.v - (REC.last.v || 0)) / dt) / 9.81;
+        if (REC.lastHd !== null && p.v > 1.5) {
+            const yawRate = angDiff(REC.lastHd, p.hd) / dt;
+            REC.latg = Math.abs(p.v * yawRate) / 9.81;
+        } else REC.latg = 0;
+        REC.lastHd = p.hd;
+        if (REC.last.alt !== null && p.alt !== null) {
+            const dz = p.alt - REC.last.alt;
+            if (Math.abs(dz) < 12) { dz > 0 ? REC.dplus += dz : REC.dminus += -dz; p.slope = d > 0 ? dz / d : 0; }
+        }
+        if (MODE === 'corsa') { extra = Math.round(drainSteps((now - REC.lastStepT) / 1000)); REC.lastStepT = now; }
+        else extra = +REC.longg.toFixed(2);
+    } else { p.v = 0; p.hd = 0; REC.lastStepT = now; }
+    p.rg = drainRough(MODE);
+    REC.accSum += c.accuracy; REC.accN++;
+    REC.vmax = Math.max(REC.vmax, p.v || 0);
+    REC.last = p;
+    REC.pts.push([p.t, +p.lat.toFixed(6), +p.lon.toFixed(6), p.alt === null ? null : Math.round(p.alt*10)/10, +(p.v||0).toFixed(2), +p.rg.toFixed(1), extra]);
+    updateTel(p);
+    // mappa aggiornata max ogni 2 s: evita i redraw a raffica che
+    // sbiancavano il canvas e allungavano la pagina
+    if (now - REC.lastDraw > 2000) { REC.lastDraw = now; drawLiveMap(); }
+}
+
+function updateTel(p) {
+    document.getElementById('tel-speed').textContent = ((p.v||0) * 3.6).toFixed(1);
+    document.getElementById('tel-dist').textContent = (REC.dist / 1000).toFixed(2);
+    document.getElementById('tel-elev').textContent = Math.round(REC.dplus);
+    document.getElementById('tel-rough').textContent = (p.rg||0).toFixed(1);
+    document.getElementById('tel-slope').textContent = ((p.slope||0)*100).toFixed(0) + '%';
+    document.getElementById('tel-latg').textContent = MODE === 'corsa'
+        ? (REC.pts.length && REC.pts[REC.pts.length-1][6] ? REC.pts[REC.pts.length-1][6] + ' spm' : '—')
+        : REC.latg.toFixed(2) + ' / ' + (REC.longg >= 0 ? '+' : '') + REC.longg.toFixed(2);
+    document.getElementById('tel-latg-l').textContent = MODE === 'corsa' ? 'cadenza' : 'G lat / long';
+}
+function recTick() {
+    if (!REC || REC.paused) return;
+    document.getElementById('tel-time').textContent = fmtTime((Date.now() - REC.startT) / 1000);
+}
+
+function stopRec() {
+    if (!REC) return;
+    navigator.geolocation.clearWatch(REC.watchId);
+    clearInterval(REC.timer);
+    window.removeEventListener('devicemotion', onMotion);
+    try { if (WAKE) { WAKE.release(); WAKE = null; } } catch (e) {}
+    const dur = (Date.now() - REC.startT) / 1000;
+    const pts = REC.pts;
+    const accAvg = REC.accN ? REC.accSum / REC.accN : 15;
+    document.getElementById('rec-btn').textContent = '▶ Avvia registrazione';
+    document.getElementById('stop-btn').style.display = 'none';
+    if (pts.length < 10 || REC.dist < 100) {
+        REC = null;
+        document.getElementById('rec-status').textContent = 'Registrazione troppo breve (meno di 100 m): scartata.';
+        return;
+    }
+    const name = prompt('Nome del percorso:', 'Percorso ' + new Date().toLocaleDateString('it-IT')) || 'Percorso senza nome';
+    const route = buildRoute(name, MODE, pts, dur, accAvg);
+    const all = loadRoutes(); all.unshift(route); saveRoutes(all);
+    REC = null;
+    document.getElementById('rec-status').textContent = '✅ Percorso salvato: ' + route.st.km.toFixed(1) + ' km, superficie prevalente: ' + surfaceName(route.st.rgAvg) + '.';
+    simRenderAll();
+    switchView('routes'); openRoute(route.id);
+    // se c'è la chiave Google Maps: ricalcolo automatico dell'altimetria dal
+    // modello del terreno (molto più preciso del barometro/GPS del telefono)
+    if (mapsKey()) refineElevation(route.id, true);
+}
+
+/* ── STATISTICHE DEL PERCORSO (riusabili: servono anche dopo il
+   ricalcolo altimetrico e per l'import) ── */
+function computeStats(pts, dur, accAvg, mode) {
+    let km = 0, dplus = 0, dminus = 0, vmax = 0, vSum = 0, rgSum = 0, rgMax = 0, curves = 0, maxLatG = 0;
+    let gAccMax = 0, gBrkMax = 0, cadSum = 0, cadN = 0;
+    let lastHd = null, turnAcc = 0;
+    for (let i = 1; i < pts.length; i++) {
+        const a = { lat: pts[i-1][1], lon: pts[i-1][2] }, b = { lat: pts[i][1], lon: pts[i][2] };
+        const d = hav(a, b); km += d;
+        const dz = (pts[i][3] !== null && pts[i-1][3] !== null) ? pts[i][3] - pts[i-1][3] : 0;
+        if (dz > 0) dplus += dz; else dminus += -dz;
+        const v = pts[i][4]; vmax = Math.max(vmax, v); vSum += v;
+        rgSum += pts[i][5]; rgMax = Math.max(rgMax, pts[i][5]);
+        const x = pts[i][6];
+        if (x !== null && x !== undefined) {
+            if (mode === 'corsa') { if (x > 40 && x < 260) { cadSum += x; cadN++; } }
+            else { if (x > 0) gAccMax = Math.max(gAccMax, x); else gBrkMax = Math.max(gBrkMax, -x); }
+        }
+        const hd = bearing(a, b);
+        if (lastHd !== null) {
+            const dt = Math.max(0.5, (pts[i][0] - pts[i-1][0]) / 1000);
+            const yaw = angDiff(lastHd, hd);
+            if (v > 1.5) {
+                if (turnAcc !== 0 && Math.sign(yaw) !== Math.sign(turnAcc)) turnAcc = 0;
+                turnAcc += yaw;
+                if (Math.abs(turnAcc) > 0.6) { curves++; turnAcc = 0; }
+            } else turnAcc = 0;
+            maxLatG = Math.max(maxLatG, v * (Math.abs(yaw) / dt) / 9.81);
+        }
+        lastHd = hd;
+    }
+    km /= 1000;
+    const density = pts.length / Math.max(1, dur);
+    let q = 5;
+    if (accAvg > 10) q--; if (accAvg > 20) q--;
+    if (density < 0.4) q--; if (density < 0.15) q--;
+    if (rgSum === 0) q--;
+    q = Math.max(1, q);
+    const st = { km: +km.toFixed(2), dplus: Math.round(dplus), dminus: Math.round(dminus),
+        vmax: +(vmax*3.6).toFixed(1), vavg: +((vSum/Math.max(1,pts.length-1))*3.6).toFixed(1),
+        rgAvg: +(rgSum/Math.max(1,pts.length-1)).toFixed(1), rgMax: +rgMax.toFixed(1),
+        curves, maxLatG: +maxLatG.toFixed(2), q };
+    if (mode === 'corsa' && cadN) { st.cadAvg = Math.round(cadSum / cadN); st.stride = +((st.vavg/3.6) / (st.cadAvg/60)).toFixed(2); }
+    if (mode !== 'corsa') { st.gAccMax = +gAccMax.toFixed(2); st.gBrkMax = +gBrkMax.toFixed(2); }
+    return st;
+}
+function buildRoute(name, mode, pts, dur, accAvg) {
+    const p = simProfile();
+    return { id: uid(), name, mode, date: new Date().toISOString(), dur: Math.round(dur), accAvg: +(+accAvg).toFixed(1), pts,
+        st: computeStats(pts, dur, accAvg, mode),
+        pub: null,
+        creator: { weight: p.weight || null, height: p.height || null, fatPct: p.fatPct ?? null, leanMass: p.leanMass || null } };
+}
+
+/* ═══ GENERATORE DEMO ═══ */
+function genDemo(kind) {
+    const cfg = { bici:  { km: 18, v: 7.5,  name: 'Demo · Salita della collina' },
+                  corsa: { km: 6,  v: 3.1,  name: 'Demo · Giro del parco' },
+                  auto:  { km: 25, v: 17,   name: 'Demo · Statale dei tornanti' },
+                  rampa: { km: 3,  v: 2.6,  name: 'Demo · Rampa 18% (test tapis)', mode: 'corsa' } }[kind];
+    const mode = cfg.mode || kind;
+    let lat = 45.46 + Math.random()*0.05, lon = 9.19 + Math.random()*0.05;
+    let hd = Math.random() * Math.PI * 2, alt = 120 + Math.random()*80, t = Date.now() - 86400000 * Math.floor(Math.random()*6);
+    const pts = []; let dist = 0; const target = cfg.km * 1000;
+    let curveBias = 0, curveLeft = 0, roughZone = 0, roughLevel = 0.6, climbPhase = Math.random()*10, lastV = cfg.v;
+    while (dist < target) {
+        if (curveLeft <= 0 && Math.random() < 0.06) { curveLeft = 5 + Math.floor(Math.random()*14); curveBias = (Math.random()<0.5?-1:1) * (0.05 + Math.random() * (mode==='auto'?0.09:0.13)); }
+        if (curveLeft > 0) { hd += curveBias; curveLeft--; } else hd += (Math.random()-0.5)*0.02;
+        if (roughZone <= 0 && Math.random() < 0.03) { roughZone = 8 + Math.floor(Math.random()*20); roughLevel = 2 + Math.random()*6; }
+        const rg = roughZone-- > 0 ? roughLevel + Math.random() : 0.3 + Math.random()*0.8;
+        climbPhase += 0.012 + Math.random()*0.004;
+        let slope;
+        if (kind === 'rampa') {
+            const fr = dist / target;
+            slope = fr < 0.15 ? 0.005 : fr < 0.35 ? 0.08 : fr < 0.75 ? 0.18 : -0.05;
+            slope += (Math.random()-0.5)*0.004;
+        } else {
+            slope = Math.sin(climbPhase) * (mode==='corsa'?0.03:0.06) + (Math.random()-0.5)*0.004;
+        }
+        const v = Math.max(0.8, cfg.v * (1 - slope*(mode==='auto'?1.5:4)) * (0.9 + Math.random()*0.2) * (curveLeft>0?0.82:1));
+        const dt = 2; const d = v * dt;
+        alt += slope * d;
+        lat += (d * Math.cos(hd)) / 111320;
+        lon += (d * Math.sin(hd)) / (111320 * Math.cos(lat*Math.PI/180));
+        t += dt * 1000; dist += d;
+        const extra = mode === 'corsa' ? Math.round(150 + v*8 + (Math.random()-0.5)*8) : +(((v - lastV)/dt)/9.81).toFixed(2);
+        lastV = v;
+        pts.push([t, +lat.toFixed(6), +lon.toFixed(6), +alt.toFixed(1), +v.toFixed(2), +Math.min(10,rg).toFixed(1), extra]);
+    }
+    const route = buildRoute(cfg.name, mode, pts, dist / cfg.v, 6);
+    const all = loadRoutes(); all.unshift(route); saveRoutes(all);
+    simRenderAll();
+    switchView('routes'); openRoute(route.id);
+}
+
+/* ═══ GOOGLE MAPS (facoltativo, con chiave dell'utente) ═══
+   Mappa satellitare live e nei dettagli + altimetria dal modello del
+   terreno (ElevationService): più precisa del GPS del telefono, che
+   sbaglia di ±5–10 m e "sporca" le pendenze. */
+const mapsKey = () => { try { return localStorage.getItem(K.mapsKey) || ''; } catch (e) { return ''; } };
+let GM = { loading: false, q: [] };
+function loadGMaps(cb) {
+    if (window.google && window.google.maps && google.maps.Map) return cb(true);
+    if (!mapsKey()) return cb(false);
+    GM.q.push(cb);
+    if (GM.loading) return;
+    GM.loading = true;
+    window.__simmyGm = () => { GM.q.forEach(f => f(true)); GM.q = []; };
+    const s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(mapsKey()) + '&callback=__simmyGm&loading=async&v=weekly';
+    s.onerror = () => { GM.loading = false; GM.q.forEach(f => f(false)); GM.q = []; };
+    document.head.appendChild(s);
+}
+let LIVEMAP = null;
+function liveMapInit() {
+    loadGMaps(ok => {
+        const wrap = document.getElementById('live-gmap');
+        if (!ok || !wrap) return;   // resta il canvas di fallback
+        wrap.style.display = 'block';
+        document.getElementById('live-map').style.display = 'none';
+        if (!LIVEMAP) {
+            LIVEMAP = { map: new google.maps.Map(wrap, { mapTypeId: 'hybrid', zoom: 16, center: { lat: 45.46, lng: 9.19 },
+                            disableDefaultUI: true, gestureHandling: 'greedy' }),
+                        poly: null, marker: null };
+            LIVEMAP.poly = new google.maps.Polyline({ map: LIVEMAP.map, strokeColor: '#ffc93c', strokeWeight: 4 });
+        }
+    });
+}
+function drawLiveMap(force) {
+    if (!REC || REC.pts.length < 2) return;
+    if (LIVEMAP && window.google && google.maps) {
+        const path = REC.pts.map(p => ({ lat: p[1], lng: p[2] }));
+        LIVEMAP.poly.setPath(path);
+        const last = path[path.length-1];
+        LIVEMAP.map.setCenter(last);
+        if (!LIVEMAP.marker) LIVEMAP.marker = new google.maps.Marker({ map: LIVEMAP.map, position: last });
+        else LIVEMAP.marker.setPosition(last);
+        return;
+    }
+    drawTrack(document.getElementById('live-map'), REC.pts, true);
+}
+/* Altimetria dal terreno Google: campiona il tracciato (max 400 punti),
+   riscrive le quote e ricalcola le statistiche del percorso. */
+async function refineElevation(id, silent) {
+    const all = loadRoutes(); const r = all.find(x => x.id === id);
+    if (!r) return;
+    loadGMaps(async ok => {
+        if (!ok) { if (!silent) alert('Configura prima la chiave Google Maps in Connessioni.'); return; }
+        try {
+            const svc = new google.maps.ElevationService();
+            const N = Math.min(400, r.pts.length);
+            const step = r.pts.length / N;
+            const idxs = Array.from({ length: N }, (_, i) => Math.floor(i * step));
+            const locs = idxs.map(i => ({ lat: r.pts[i][1], lng: r.pts[i][2] }));
+            const out = [];
+            for (let i = 0; i < locs.length; i += 250) {
+                const res = await svc.getElevationForLocations({ locations: locs.slice(i, i + 250) });
+                out.push(...res.results.map(x => x.elevation));
+            }
+            // interpolazione lineare sulle quote DEM per tutti i punti
+            for (let i = 0; i < r.pts.length; i++) {
+                const f = i / step;
+                const a = Math.min(N-1, Math.floor(f)), b = Math.min(N-1, a+1), t = f - a;
+                r.pts[i][3] = +(out[a] * (1-t) + out[b] * t).toFixed(1);
+            }
+            r.st = computeStats(r.pts, r.dur, r.accAvg || 10, r.mode);
+            r.elevSource = 'google-dem';
+            saveRoutes(all);
+            if (RD_ID === id) openRoute(id);
+            if (!silent) alert('✅ Altimetria ricalcolata dal modello del terreno Google: D+ ' + r.st.dplus + ' m.');
+            else { const el = document.getElementById('rd-meta'); if (el && RD_ID === id) openRoute(id); }
+        } catch (e) { if (!silent) alert('Errore Elevation API: ' + (e.message || e)); }
+    });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   DISEGNO — tutto canvas nativo, nessuna libreria: l'app resta un
+   file unico e funziona anche con rete assente (tranne AI/Drive).
+   ═══════════════════════════════════════════════════════════════ */
+function fitCanvas(cv) {
+    const r = cv.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    // vista nascosta o layout non pronto: NON ridimensionare (era la causa
+    // della mappa bianca e della pagina che si allungava coprendo i pulsanti)
+    if (r.width < 10) { return { ctx: cv.getContext('2d'), w: cv.width / dpr || 300, h: parseInt(cv.getAttribute('height')) || 120, skip: true }; }
+    cv.width = Math.max(50, r.width * dpr);
+    cv.height = (parseInt(cv.getAttribute('height')) || 120) * dpr;
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: r.width, h: parseInt(cv.getAttribute('height')) || 120 };
+}
+
+/* Pianta del tracciato, colorata con l'indice asfalto */
+function drawTrack(cv, pts, live) {
+    const fc = fitCanvas(cv);
+    if (fc.skip) return;
+    const { ctx, w, h } = fc;
+    ctx.clearRect(0, 0, w, h);
+    if (pts.length < 2) return;
+    let minLa = 1e9, maxLa = -1e9, minLo = 1e9, maxLo = -1e9;
+    pts.forEach(p => { minLa = Math.min(minLa, p[1]); maxLa = Math.max(maxLa, p[1]); minLo = Math.min(minLo, p[2]); maxLo = Math.max(maxLo, p[2]); });
+    const kx = Math.cos(((minLa + maxLa) / 2) * Math.PI / 180);
+    const spanX = (maxLo - minLo) * kx || 1e-6, spanY = (maxLa - minLa) || 1e-6;
+    const sc = Math.min((w - 24) / spanX, (h - 24) / spanY);
+    const X = p => 12 + ((p[2] - minLo) * kx - (spanX - (w-24)/sc) * 0 ) * sc + ((w-24) - spanX*sc)/2;
+    const Y = p => h - 12 - (p[1] - minLa) * sc - ((h-24) - spanY*sc)/2;
+    ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 1; i < pts.length; i++) {
+        ctx.strokeStyle = roughColor(pts[i][5]);
+        ctx.beginPath(); ctx.moveTo(X(pts[i-1]), Y(pts[i-1])); ctx.lineTo(X(pts[i]), Y(pts[i])); ctx.stroke();
+    }
+    // partenza e posizione corrente/arrivo
+    ctx.fillStyle = '#f2f4f7'; ctx.beginPath(); ctx.arc(X(pts[0]), Y(pts[0]), 4, 0, 7); ctx.fill();
+    const lastP = pts[pts.length-1];
+    ctx.fillStyle = live ? '#ff6b5e' : '#ffc93c';
+    ctx.beginPath(); ctx.arc(X(lastP), Y(lastP), 5, 0, 7); ctx.fill();
+}
+
+/* Profilo altimetrico (area) */
+function drawElev(cv, pts) {
+    const { ctx, w, h } = fitCanvas(cv);
+    ctx.clearRect(0, 0, w, h);
+    const alts = pts.map(p => p[3]).filter(a => a !== null);
+    if (alts.length < 2) { ctx.fillStyle = '#98a1ad'; ctx.font = '12px sans-serif'; ctx.fillText('Nessun dato altimetrico', 10, h/2); return; }
+    const min = Math.min(...alts), max = Math.max(...alts), span = Math.max(10, max - min);
+    ctx.beginPath(); ctx.moveTo(0, h);
+    pts.forEach((p, i) => { const a = p[3] === null ? min : p[3];
+        ctx.lineTo(i / (pts.length-1) * w, h - 8 - ((a - min) / span) * (h - 22)); });
+    ctx.lineTo(w, h); ctx.closePath();
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(90,220,160,.5)'); g.addColorStop(1, 'rgba(90,220,160,.05)');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = '#5adca0'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#98a1ad'; ctx.font = '10px ' + 'monospace';
+    ctx.fillText(Math.round(max) + ' m', 6, 12); ctx.fillText(Math.round(min) + ' m', 6, h - 4);
+}
+
+/* Grafico velocità */
+function drawSpeed(cv, pts) {
+    const { ctx, w, h } = fitCanvas(cv);
+    ctx.clearRect(0, 0, w, h);
+    const vmax = Math.max(1, ...pts.map(p => p[4]));
+    ctx.beginPath();
+    pts.forEach((p, i) => { const y = h - 6 - (p[4] / vmax) * (h - 18);
+        i ? ctx.lineTo(i / (pts.length-1) * w, y) : ctx.moveTo(0, y); });
+    ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#98a1ad'; ctx.font = '10px monospace';
+    ctx.fillText((vmax*3.6).toFixed(0) + ' km/h', 6, 12);
+}
+
+/* Nastro dell'indice asfalto */
+function drawRough(cv, pts) {
+    const { ctx, w, h } = fitCanvas(cv);
+    ctx.clearRect(0, 0, w, h);
+    const n = Math.min(240, pts.length);
+    const step = pts.length / n;
+    for (let i = 0; i < n; i++) {
+        const p = pts[Math.floor(i * step)];
+        ctx.fillStyle = roughColor(p[5]);
+        ctx.globalAlpha = 0.4 + Math.min(0.6, p[5] / 10 * 0.9);
+        ctx.fillRect(i / n * w, 4, w / n + 1, h - 8);
+    }
+    ctx.globalAlpha = 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LISTA E DETTAGLIO PERCORSI
+   ═══════════════════════════════════════════════════════════════ */
+let RD_ID = null;
+function renderRouteList() {
+    const el = document.getElementById('route-list');
+    const routes = loadRoutes();
+    if (!routes.length) { el.innerHTML = '<p class="hint">Nessun percorso ancora. Registra il primo o genera una demo dalla scheda Registra.</p>'; return; }
+    el.innerHTML = routes.map(r => `
+        <div class="route-item" onclick="openRoute('${r.id}')">
+            <div class="top">
+                <div class="name">${MODE_ICO[r.mode]} ${esc(r.name)}</div>
+                
+            </div>
+            <div class="meta">${fmtDate(r.date)} · ${r.st.km.toFixed(1)} km · D+ ${r.st.dplus} m · asfalto ${r.st.rgAvg.toFixed(1)} · <span class="stars">${'★'.repeat(r.st.q)}${'☆'.repeat(5-r.st.q)}</span></div>
+        </div>`).join('');
+}
+function esc(s) { return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+function openRoute(id) {
+    const r = loadRoutes().find(x => x.id === id);
+    if (!r) return;
+    RD_ID = id;
+    document.getElementById('route-detail').style.display = 'block';
+    document.getElementById('rd-name').textContent = MODE_ICO[r.mode] + ' ' + r.name;
+    document.getElementById('rd-meta').textContent = fmtDate(r.date) + ' · ' + fmtTime(r.dur) + ' · qualità registrazione ' + r.st.q + '/5' + (r.elevSource === 'google-dem' ? ' · altimetria: terreno Google' : ' · altimetria: GPS');
+
+    const kpi = [
+        [r.st.km.toFixed(1), 'km'], [fmtTime(r.dur), 'durata'], [r.st.vavg + '', 'km/h medi'],
+        [r.st.vmax + '', 'km/h max'], ['+' + r.st.dplus, 'dislivello m'], [r.st.curves + '', 'curve'],
+        [surfaceName(r.st.rgAvg), 'superficie prevalente'], [surfaceName(r.st.rgMax), 'tratto peggiore'], [r.st.maxLatG.toFixed(2), 'G max curva']
+    ];
+    if (r.mode === 'corsa' && r.st.cadAvg) kpi.push([r.st.cadAvg + '', 'cadenza spm'], [r.st.stride + '', 'falcata m'], [(r.st.dminus||0)+'', 'D− m']);
+    if (r.mode !== 'corsa' && r.st.gBrkMax !== undefined) kpi.push(['+' + (r.st.gAccMax||0), 'G accel max'], ['−' + (r.st.gBrkMax||0), 'G frenata max'], [(r.st.dminus||0)+'', 'D− m']);
+    document.getElementById('rd-kpi').innerHTML = kpi.map(k => `<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+    // mappa Google satellitare se configurata, altrimenti canvas
+    loadGMaps(ok => {
+        const g = document.getElementById('rd-gmap');
+        if (ok && g) {
+            g.style.display = 'block'; document.getElementById('rd-map').style.display = 'none';
+            const map = new google.maps.Map(g, { mapTypeId: 'hybrid', disableDefaultUI: true, gestureHandling: 'greedy' });
+            const path = r.pts.filter((_, i) => i % Math.ceil(r.pts.length/500) === 0).map(p => ({ lat: p[1], lng: p[2] }));
+            new google.maps.Polyline({ map, path, strokeColor: '#ffc93c', strokeWeight: 4 });
+            const b = new google.maps.LatLngBounds(); path.forEach(p => b.extend(p)); map.fitBounds(b);
+        }
+    });
+    requestAnimationFrame(() => {
+        drawTrack(document.getElementById('rd-map'), r.pts, false);
+        drawElev(document.getElementById('rd-elev'), r.pts);
+        drawSpeed(document.getElementById('rd-speed'), r.pts);
+        drawRough(document.getElementById('rd-rough'), r.pts);
+    });
+    try { document.getElementById('route-detail').scrollIntoView({ behavior: 'smooth' }); } catch (e) {}
+}
+function renameRoute(id) {
+    const all = loadRoutes(); const r = all.find(x => x.id === id); if (!r) return;
+    const n = prompt('Nuovo nome:', r.name); if (!n) return;
+    r.name = n; saveRoutes(all); simRenderAll(); openRoute(id);
+}
+function deleteRoute(id) {
+    if (!confirm('Eliminare definitivamente questo percorso?')) return;
+    saveRoutes(loadRoutes().filter(r => r.id !== id));
+    document.getElementById('route-detail').style.display = 'none';
+    RD_ID = null; simRenderAll();
+}
+function exportRoute(id) {
+    const r = loadRoutes().find(x => x.id === id); if (!r) return;
+    downloadJSON(r, 'simy_percorso_' + r.name.replace(/\W+/g, '_').toLowerCase() + '.json');
+}
+function importRouteFile(input) {
+    const f = input.files[0]; if (!f) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+        try {
+            const r = JSON.parse(fr.result);
+            if (!r.pts || !r.st) throw new Error('formato');
+            r.id = uid();
+            const all = loadRoutes(); all.unshift(r); saveRoutes(all);
+            simRenderAll(); openRoute(r.id);
+        } catch (e) { alert('File non valido: non sembra un percorso Simmy.'); }
+        input.value = '';
+    };
+    fr.readAsText(f);
+}
+function downloadJSON(obj, name) {
+    const blob = new Blob([JSON.stringify(obj)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GPX — formato standard per tracce GPS (Strava, Garmin, Komoot…).
+   Export: <trk> con <trkpt lat lon><ele><time> per ogni punto.
+   Import: legge lat/lon/ele/time, ricostruisce velocità dai tempi
+   (o le stima da una velocità media se i timestamp mancano), poi
+   passa dal solito buildRoute così statistiche, superficie, curve e
+   compensazioni funzionano identiche a una registrazione nativa.
+   Le vibrazioni non esistono in un GPX di terzi: l'indice superficie
+   resta 0 (nessun dato sensori) e viene segnalato come tale.
+   ═══════════════════════════════════════════════════════════════ */
+function xmlEsc(s) { return String(s).replace(/[<>&'"]/g, c => ({ '<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;' }[c])); }
+
+function routeToGpx(r) {
+    const head = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        '<gpx version="1.1" creator="Simmy" xmlns="http://www.topografix.com/GPX/1/1" ' +
+        'xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">\n' +
+        '  <metadata><name>' + xmlEsc(r.name) + '</name><time>' + new Date(r.date).toISOString() + '</time></metadata>\n' +
+        '  <trk><name>' + xmlEsc(r.name) + '</name><type>' + (r.mode || 'run') + '</type>\n    <trkseg>\n';
+    const body = r.pts.map(p => {
+        let s = '      <trkpt lat="' + p[1] + '" lon="' + p[2] + '">';
+        if (p[3] !== null && p[3] !== undefined) s += '<ele>' + p[3] + '</ele>';
+        s += '<time>' + new Date(p[0]).toISOString() + '</time>';
+        // cadenza (corsa) come estensione Garmin, così altri tool la leggono
+        if (r.mode === 'corsa' && p[6]) s += '<extensions><gpxtpx:TrackPointExtension><gpxtpx:cad>' + Math.round(p[6]/2) + '</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions>';
+        return s + '</trkpt>';
+    }).join('\n');
+    return head + body + '\n    </trkseg>\n  </trk>\n</gpx>\n';
+}
+function exportRouteGpx(id) {
+    const r = loadRoutes().find(x => x.id === id); if (!r) return;
+    const blob = new Blob([routeToGpx(r)], { type: 'application/gpx+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'simmy_' + (r.name || 'percorso').replace(/\W+/g, '_').toLowerCase() + '.gpx';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function gpxToRoute(xmlText, fileName) {
+    const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('GPX illeggibile');
+    let nodes = Array.from(doc.getElementsByTagName('trkpt'));
+    if (!nodes.length) nodes = Array.from(doc.getElementsByTagName('rtept'));   // route al posto di track
+    if (!nodes.length) nodes = Array.from(doc.getElementsByTagName('wpt'));
+    if (nodes.length < 2) throw new Error('Il GPX non contiene una traccia valida.');
+    // nome
+    let name = (doc.querySelector('trk > name, metadata > name, name') || {}).textContent || fileName.replace(/\.gpx$/i, '');
+    // tipo → modalità
+    const typeRaw = ((doc.querySelector('trk > type') || {}).textContent || '').toLowerCase();
+    const mode = /bik|cycl|ride|bici/.test(typeRaw) ? 'bici' : /car|drive|auto/.test(typeRaw) ? 'auto' : 'corsa';
+    // punti grezzi
+    const raw = nodes.map(n => {
+        const lat = parseFloat(n.getAttribute('lat')), lon = parseFloat(n.getAttribute('lon'));
+        const eleN = n.getElementsByTagName('ele')[0], timeN = n.getElementsByTagName('time')[0];
+        const cadN = n.getElementsByTagName('gpxtpx:cad')[0] || n.getElementsByTagName('cad')[0];
+        return { lat, lon,
+                 ele: eleN ? parseFloat(eleN.textContent) : null,
+                 t: timeN ? Date.parse(timeN.textContent) : null,
+                 cad: cadN ? parseFloat(cadN.textContent) : null };
+    }).filter(p => isFinite(p.lat) && isFinite(p.lon));
+    if (raw.length < 2) throw new Error('Coordinate GPX non valide.');
+    // se mancano i tempi, li sintetizziamo da una velocità plausibile per modalità
+    const hasTime = raw.every(p => p.t !== null);
+    let synthV = { corsa: 3.0, bici: 6.5, auto: 14 }[mode];
+    let t0 = hasTime ? raw[0].t : Date.now() - 3600000;
+    const pts = [];
+    for (let i = 0; i < raw.length; i++) {
+        let t, v = 0;
+        if (i === 0) { t = hasTime ? raw[0].t : t0; }
+        else {
+            const d = hav(raw[i-1], raw[i]);
+            if (hasTime) { const dt = Math.max(0.1, (raw[i].t - raw[i-1].t) / 1000); t = raw[i].t; v = d / dt; }
+            else { const dt = d / synthV; t = pts[i-1][0] + dt * 1000; v = synthV; }
+        }
+        const extra = (mode === 'corsa' && raw[i].cad) ? Math.round(raw[i].cad * 2) : null;   // cad→passi/min
+        pts.push([Math.round(t), +raw[i].lat.toFixed(6), +raw[i].lon.toFixed(6),
+                  raw[i].ele === null ? null : Math.round(raw[i].ele*10)/10, +v.toFixed(2), 0, extra]);
+    }
+    const dur = (pts[pts.length-1][0] - pts[0][0]) / 1000;
+    const route = buildRoute(name, mode, pts, dur, 8);   // accAvg medio: qualità import
+    route.imported = 'gpx';
+    if (!hasTime) route.synthTime = true;
+    return route;
+}
+function importGpxFile(input) {
+    const f = input.files[0]; if (!f) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+        try {
+            const route = gpxToRoute(fr.result, f.name || 'percorso.gpx');
+            const all = loadRoutes(); all.unshift(route); saveRoutes(all);
+            (typeof simRenderAll === 'function' ? simRenderAll : renderAll)();
+            openRoute(route.id);
+            let msg = '✅ GPX importato: ' + route.st.km.toFixed(1) + ' km';
+            if (route.synthTime) msg += ' (il file non aveva orari: velocità stimata — puoi usarlo lo stesso per la sfida)';
+            msg += '. Superficie non disponibile da un GPX esterno; usa 🛰️ Altimetria Google per pendenze più precise.';
+            alert(msg);
+        } catch (e) { alert('File GPX non valido: ' + e.message); }
+        input.value = '';
+    };
+    fr.readAsText(f);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   REPLAY INDOOR — con tapis connesso diventa una SFIDA:
+   1) PRE-PARTENZA: il percorso viene riqualificato sui parametri del
+      tapis (pendenze fuori range → ritagliate, velocità compensate
+      con Minetti in salita E in discesa, fattore di equità fisica);
+      l'utente vede i grafici originale-vs-adattato e CONFERMA.
+   2) DURANTE: vista 3D procedurale o 2D a grafici (velocità e
+      pendenza sull'intero percorso con cursore, stile Tapis);
+      campionamento continuo della prestazione reale.
+   3) FINE: grafico di confronto target-vs-reale e analisi AI che
+      considera risultato, parametri fisici e stato di forma.
+   ═══════════════════════════════════════════════════════════════ */
+let RP = null, PREFLY = null;
+
+/* Riqualificazione: per ogni punto del percorso calcola pendenza
+   levigata (~60 m), pendenza impostabile sul tapis e velocità target.
+   comp = C(pendenza reale)/C(pendenza tapis) — vale in entrambe le
+   direzioni: 10 km/h al 18% su tapis max 15% → 11.3 km/h;
+   12 km/h al −4% su tapis min 0% → 9.7 km/h (stesso sforzo). */
+function requalifyRoute(r) {
+    const pts = r.pts, n = pts.length;
+    const cum = [0];
+    for (let i = 1; i < n; i++) cum.push(cum[i-1] + hav({lat:pts[i-1][1],lon:pts[i-1][2]},{lat:pts[i][1],lon:pts[i][2]}));
+    const iMin = btActive() ? BT.effInclMin/10 : 0, iMax = btActive() ? BT.effInclMax/10 : 15;
+    const sMin = btActive() ? BT.effSpdMin/100 : 1, sMax = btActive() ? BT.effSpdMax/100 : 20;
+    const me = loadProfile();
+    const slope = [], incl = [], vB = [], vT = []; let clampedM = 0, eqSum = 0, tTgt = 0, tB = 0;
+    for (let i = 0; i < n; i++) {
+        // pendenza media sui prossimi ~60 m
+        let dz = 0, dd = 0, j = i;
+        while (j < n-1 && cum[j] < cum[i] + 60) { const z = (pts[j+1][3] ?? 0) - (pts[j][3] ?? 0); dz += z; dd += Math.max(1, cum[j+1]-cum[j]); j++; }
+        const sl = dd ? (dz/dd)*100 : 0;
+        const im = Math.max(iMin, Math.min(iMax, sl));
+        const comp = Math.abs(sl - im) > 0.1 ? minettiC(sl/100) / minettiC(im/100) : 1;
+        const eq = Math.max(0.85, Math.min(1.15, bodyFactor(me, sl/100) / bodyFactor(r.creator, sl/100)));
+        const vb = Math.max(0.4, pts[i][4]) * 3.6;
+        const vt = Math.max(sMin, Math.min(sMax, vb * comp * eq));
+        slope.push(sl); incl.push(im); vB.push(vb); vT.push(vt);
+        eqSum += eq;
+        const seg = i < n-1 ? cum[i+1]-cum[i] : 0;
+        if (Math.abs(sl - im) > 0.2) clampedM += seg;
+        tB += seg / (vb/3.6); tTgt += seg / (vt/3.6);
+    }
+    return { cum, slope, incl, vB, vT, total: cum[n-1],
+             clampedPct: Math.round(clampedM / Math.max(1,cum[n-1]) * 100),
+             eqAvg: eqSum / n, tB, tTgt, iMin, iMax };
+}
+function drawTwoLines(cv, x, y1, y2, c1, c2, unit) {
+    const fc = fitCanvas(cv); if (fc.skip) return;
+    const { ctx, w, h } = fc;
+    ctx.clearRect(0, 0, w, h);
+    const all = y1.concat(y2);
+    const min = Math.min(0, ...all), max = Math.max(1, ...all), span = max - min || 1;
+    const Y = v => h - 8 - ((v - min) / span) * (h - 20);
+    if (min < 0) { ctx.strokeStyle = '#2c313a'; ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(w, Y(0)); ctx.stroke(); }
+    [[y1, c1], [y2, c2]].forEach(([ys, c]) => {
+        ctx.beginPath();
+        ys.forEach((v, i) => { const px = x[i] / x[x.length-1] * w; i ? ctx.lineTo(px, Y(v)) : ctx.moveTo(px, Y(v)); });
+        ctx.strokeStyle = c; ctx.lineWidth = 1.6; ctx.stroke();
+    });
+    ctx.fillStyle = '#98a1ad'; ctx.font = '10px monospace';
+    ctx.fillText(max.toFixed(0) + unit, 6, 12); ctx.fillText(min.toFixed(0) + unit, 6, h - 4);
+}
+function startReplay(id) {
+    const r = loadRoutes().find(x => x.id === id); if (!r) return;
+    const rq = requalifyRoute(r);
+    if (btActive()) {
+        // schermata di conferma con i grafici della riqualificazione
+        PREFLY = { r, rq };
+        const m = machineProf();
+        document.getElementById('pf-summary').innerHTML =
+            'Tapis: <b>' + (m.model || (BT.virtual ? 'virtuale' : 'connesso')) + '</b> — pendenza ' + rq.iMin.toFixed(1) + '÷' + rq.iMax.toFixed(1) + '%, velocità ' +
+            (BT.effSpdMin/100).toFixed(1) + '÷' + (BT.effSpdMax/100).toFixed(1) + ' km/h.<br>' +
+            '<b>' + rq.clampedPct + '%</b> del percorso ha pendenze fuori dal range del tapis: lì la pendenza è stata ritagliata e la <b>velocità target compensata</b> per mantenere lo stesso sforzo (Minetti) — sia in salita (target più alto) sia in discesa (target più basso).<br>' +
+            'Fattore di equità medio vs creatore: <b>×' + rq.eqAvg.toFixed(2) + '</b>' +
+            (Math.abs(rq.eqAvg-1) < 0.005 ? ' (stesso fisico o dati mancanti)' : rq.eqAvg < 1 ? ' (fisico più pesante: target ridotto)' : ' (fisico più leggero: target aumentato)') + '.<br>' +
+            'Tempo benchmark originale <b>' + fmtTime(rq.tB) + '</b> → tempo di riferimento adattato <b>' + fmtTime(rq.tTgt) + '</b>.';
+        document.getElementById('pf-ai').textContent = '';
+        document.getElementById('prefly-overlay').style.display = 'block';
+        requestAnimationFrame(() => {
+            drawTwoLines(document.getElementById('pf-slope'), rq.cum, rq.slope, rq.incl, '#98a1ad', '#ffc93c', '%');
+            drawTwoLines(document.getElementById('pf-speed'), rq.cum, rq.vB, rq.vT, '#98a1ad', '#5adca0', '');
+        });
+        // nota AI facoltativa e non bloccante
+        if (getAiKey()) {
+            geminiCallSimple('In UNA sola frase italiana (max 30 parole) spiega a un utente questo adattamento del suo percorso al tapis: ' + rq.clampedPct + '% del percorso fuori range pendenza ' + rq.iMin + '–' + rq.iMax + '%, compensazione di velocità a pari sforzo, fattore equità ' + rq.eqAvg.toFixed(2) + '.')
+                .then(t => { const el = document.getElementById('pf-ai'); if (el && PREFLY) el.textContent = '🤖 ' + t.trim(); }).catch(() => {});
+        }
+        return;
+    }
+    beginReplay(r, rq);
+}
+function preflyConfirm() { if (!PREFLY) return; document.getElementById('prefly-overlay').style.display = 'none'; beginReplay(PREFLY.r, PREFLY.rq); PREFLY = null; }
+function preflyCancel() { PREFLY = null; document.getElementById('prefly-overlay').style.display = 'none'; }
+
+function beginReplay(r, rq) {
+    const hds = [0];
+    for (let i = 1; i < r.pts.length; i++) hds.push(bearing({lat:r.pts[i-1][1],lon:r.pts[i-1][2]},{lat:r.pts[i][1],lon:r.pts[i][2]}));
+    const tim = r.pts.map(p => (p[0] - r.pts[0][0]) / 1000);
+    RP = { r, rq, cum: rq.cum, hds, tim, total: rq.total, pos: 0, mult: 1, offset: 0, paused: false,
+           lastT: performance.now(), elapsed: 0, dash: 0, view: '3d', curveS: 0, slopeS: 0,
+           samples: [], lastSample: 0, sceneSeed: 1 };
+    document.getElementById('replay-overlay').classList.add('on');
+    const bt = btActive();
+    document.getElementById('rp-incl-box').style.display = bt ? 'block' : 'none';
+    document.getElementById('rp-gap-box').style.display = bt ? 'block' : 'none';
+    document.getElementById('rp-minus').style.display = bt ? 'block' : 'none';
+    document.getElementById('rp-plus').style.display = bt ? 'block' : 'none';
+    document.getElementById('rp-chal').textContent = '';
+    document.getElementById('rp-view').textContent = '2D';
+    document.getElementById('rp-x').textContent = bt ? '🏃 SFIDA' : '1×';
+    document.getElementById('rp-x').disabled = bt;
+    if (bt) { BT.lastInclSent = null; BT.lastSpdSent = null; BT.lastSendT = 0; }
+    const cv = document.getElementById('replay-canvas');
+    cv.width = cv.clientWidth * (devicePixelRatio||1); cv.height = cv.clientHeight * (devicePixelRatio||1);
+    requestAnimationFrame(rpFrame);
+}
+function rpToggleView() { if (!RP) return; RP.view = RP.view === '3d' ? '2d' : '3d'; document.getElementById('rp-view').textContent = RP.view === '3d' ? '2D' : '3D'; }
+function replaySpeed() { if (!RP || btActive()) return; RP.mult = RP.mult >= 4 ? 1 : RP.mult * 2; document.getElementById('rp-x').textContent = RP.mult + '×'; }
+function replayPause() {
+    if (!RP) return;
+    RP.paused = !RP.paused; RP.lastT = performance.now();
+    document.getElementById('rp-pause').textContent = RP.paused ? '▶ Riprendi' : '⏸ Pausa';
+    if (btActive()) { if (RP.paused) btSetSpeed(1.0); else BT.lastSendT = 0; }
+}
+function rpAdjust(d) {
+    if (!RP || !btActive()) return;
+    RP.offset = Math.max(-6, Math.min(6, +(RP.offset + d).toFixed(1)));
+    BT.lastSendT = 0;
+}
+function idxAt(dist) {
+    const c = RP.cum; let i = RP._i || 0;
+    while (i < c.length - 1 && c[i+1] < dist) i++;
+    while (i > 0 && c[i] > dist) i--;
+    RP._i = i; return i;
+}
+function rpFrame(now) {
+    if (!RP) return;
+    const dt = Math.min(0.1, (now - RP.lastT) / 1000); RP.lastT = now;
+    const i = idxAt(RP.pos);
+    const p = RP.r.pts[i];
+    const bt = btActive();
+    const v = bt ? Math.max(1.0/3.6, BT.speed || 0) : Math.max(0.6, p[4]);
+    const mult = bt ? 1 : RP.mult;
+    if (!RP.paused) { RP.pos += v * mult * dt; RP.elapsed += dt; RP.dash += v * mult * dt; }
+    if (RP.pos >= RP.total) { endReplay(true); return; }
+    // curvatura sui prossimi ~80 m; pendenza dalla riqualificazione (levigata)
+    let curve = 0, ncv = 0, j = i;
+    while (j < RP.r.pts.length - 1 && RP.cum[j] < RP.pos + 80) { curve += angDiff(RP.hds[j], RP.hds[j+1]); ncv++; j++; }
+    curve = ncv ? curve / ncv : 0;
+    const slope = RP.rq.slope[i] / 100;
+    // smorzamento per una camera fluida
+    RP.curveS += (curve - RP.curveS) * Math.min(1, dt * 4);
+    RP.slopeS += (slope - RP.slopeS) * Math.min(1, dt * 3);
+    if (bt && !RP.paused) {
+        const det = btChallengeTick(slope, Math.max(0.4, p[4]), RP.offset, RP.r, false);
+        if (det) document.getElementById('rp-chal').textContent =
+            'target ' + det.target.toFixed(1) + ' km/h = bench ' + (p[4]*3.6).toFixed(1) +
+            (Math.abs(det.comp-1) > 0.005 ? ' × comp ' + det.comp.toFixed(2) : '') +
+            (Math.abs(det.eq-1) > 0.005 ? ' × equità ' + det.eq.toFixed(2) : '') +
+            (RP.offset ? ' ' + (RP.offset > 0 ? '+' : '') + RP.offset.toFixed(1) : '') +
+            ' · pendenza bloccata ' + det.iMachinePct.toFixed(1) + '%';
+        const gap = (RP.tim[i] || 0) - RP.elapsed;
+        const g = document.getElementById('rp-gap');
+        g.textContent = (gap >= 0 ? '+' : '−') + Math.abs(gap).toFixed(0) + 's';
+        g.style.color = gap >= 0 ? 'var(--tel)' : 'var(--danger)';
+        // campiona la prestazione reale ogni ~2 s per il confronto finale
+        if (RP.elapsed - RP.lastSample > 2) {
+            RP.lastSample = RP.elapsed;
+            RP.samples.push([+(RP.pos).toFixed(0), +(v*3.6).toFixed(1), Math.round(RP.elapsed), BT.machineIncl]);
+        }
+    }
+    if (RP.view === '3d') drawRoad(RP.curveS, RP.slopeS, p[5], v * 3.6);
+    else drawReplay2D(i, v * 3.6);
+    document.getElementById('rp-speed').textContent = (v * 3.6).toFixed(0);
+    document.getElementById('rp-slope').textContent = (RP.rq.slope[i]).toFixed(0) + '%';
+    document.getElementById('rp-dist').textContent = (RP.pos / 1000).toFixed(1);
+    document.getElementById('rp-time').textContent = fmtTime(RP.elapsed);
+    document.getElementById('rp-bar').style.width = (RP.pos / RP.total * 100).toFixed(1) + '%';
+    requestAnimationFrame(rpFrame);
+}
+
+/* ── 3D PROCEDURALE (migliorata): cielo con sole, montagne in
+   parallasse guidate dalla curvatura, alberi e paletti a bordo
+   strada, cartelli chilometrici, banking in curva, asfalto colorato
+   e chiazzato secondo la classe di superficie. ── */
+function drawRoad(curve, slope, rough, kmh) {
+    const cv = document.getElementById('replay-canvas');
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    if (W < 10 || H < 10) return;   // canvas non ancora dimensionato: evita loop a passo zero
+    const shake = rough * 0.55 * Math.min(1.5, kmh / 40);
+    const sx = (Math.random()-0.5) * shake * (W/420), sy = (Math.random()-0.5) * shake * (H/420);
+    const horizon = H * (0.42 - slope * 1.5);
+    ctx.save();
+    // banking leggero in curva
+    ctx.translate(W/2, H/2); ctx.rotate(-curve * 0.9); ctx.translate(-W/2, -H/2);
+    // cielo con sole
+    const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+    sky.addColorStop(0, '#0b1322'); sky.addColorStop(0.7, '#25364e'); sky.addColorStop(1, '#3b4d63');
+    ctx.fillStyle = sky; ctx.fillRect(-W*0.2, -H*0.2, W*1.4, Math.max(0, horizon)+H*0.2);
+    const sunX = W*0.72 - curve*W*0.5, sunY = horizon*0.45;
+    const sun = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, H*0.12);
+    sun.addColorStop(0, 'rgba(255,230,170,.95)'); sun.addColorStop(1, 'rgba(255,230,170,0)');
+    ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sunX, sunY, H*0.12, 0, 7); ctx.fill();
+    // montagne in parallasse (due layer, scorrono con la curvatura accumulata)
+    const par = RP ? RP.dash : 0;
+    [[0.10, '#16202e', 90], [0.22, '#101821', 55]].forEach(([amp, col, hgt], li) => {
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-W*0.2, horizon);
+        for (let x = -W*0.2; x <= W*1.2; x += W/24) {
+            const ph = x/W*6 + par*0.0009*(li+1) + curve*3;
+            ctx.lineTo(x, horizon - (Math.sin(ph)*0.5+0.5) * H*amp - 4);
+        }
+        ctx.lineTo(W*1.2, horizon); ctx.closePath(); ctx.fill();
+    });
+    // terreno (colore dal tipo di superficie)
+    const sc = surfaceClass(rough);
+    const gnd = ctx.createLinearGradient(0, horizon, 0, H);
+    gnd.addColorStop(0, rough > 4.5 ? '#242019' : '#17201a');
+    gnd.addColorStop(1, '#0c110d');
+    ctx.fillStyle = gnd; ctx.fillRect(-W*0.2, horizon, W*1.4, H*1.4 - horizon);
+    // strada prospettica
+    const steps = 30;
+    const bend = curve * 2600;
+    const edges = [];
+    for (let s2 = 0; s2 < steps; s2++) {
+        const t0 = s2/steps, t1 = (s2+1)/steps;
+        const y0 = H - (H-horizon)*t0, y1 = H - (H-horizon)*t1;
+        const p0 = 1-t0, p1 = 1-t1;
+        const w0 = W*(0.05+0.75*p0*p0), w1 = W*(0.05+0.75*p1*p1);
+        const cx0 = W/2 + bend*t0*t0*(W/900) + sx, cx1 = W/2 + bend*t1*t1*(W/900) + sx;
+        const base = 40 + s2;
+        const tint = rough > 5.5 ? [base+14, base+8, base] : rough > 3 ? [base+6, base+5, base+2] : [base, base+2, base+5];
+        ctx.fillStyle = `rgb(${tint[0]},${tint[1]},${tint[2]})`;
+        ctx.beginPath();
+        ctx.moveTo(cx0-w0/2, y0+sy); ctx.lineTo(cx0+w0/2, y0+sy);
+        ctx.lineTo(cx1+w1/2, y1+sy); ctx.lineTo(cx1-w1/2, y1+sy);
+        ctx.closePath(); ctx.fill();
+        // chiazze/buche sui fondi rovinati
+        if (rough > 4 && (Math.floor(RP ? RP.dash/3 : 0) + s2) % 4 === 0) {
+            ctx.fillStyle = 'rgba(0,0,0,.25)';
+            ctx.beginPath(); ctx.ellipse(cx0 + (s2%2? -1:1)*w0*0.2, y0+sy, w0*0.06, 3*p0+1, 0, 0, 7); ctx.fill();
+        }
+        ctx.strokeStyle = 'rgba(235,240,245,.75)'; ctx.lineWidth = Math.max(1, 3*p0);
+        ctx.beginPath(); ctx.moveTo(cx0-w0/2, y0+sy); ctx.lineTo(cx1-w1/2, y1+sy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx0+w0/2, y0+sy); ctx.lineTo(cx1+w1/2, y1+sy); ctx.stroke();
+        if (Math.floor((RP ? RP.dash : 0)/6 + s2*0.8) % 2 === 0) {
+            ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = Math.max(1.5, 6*p0);
+            ctx.beginPath(); ctx.moveTo(cx0, y0+sy); ctx.lineTo(cx1, y1+sy); ctx.stroke();
+        }
+        edges.push({ t: t0, y: y0, cx: cx0, w: w0, p: p0 });
+    }
+    // scenografia deterministica: alberi/paletti che "arrivano" con la distanza
+    if (RP) {
+        for (let k = 0; k < 14; k++) {
+            const worldD = Math.floor((RP.pos + k*24) / 24) * 24;                 // un oggetto ogni 24 m
+            const t = 1 - Math.min(0.98, (worldD - RP.pos) / (24*14));            // vicino=1
+            if (t < 0.05) continue;
+            const seed = Math.sin(worldD * 12.9898) * 43758.5453;
+            const rnd = seed - Math.floor(seed);
+            const e = edges[Math.max(0, Math.min(edges.length-1, Math.round((1-t)*steps)))];
+            if (!e) continue;
+            const side = rnd > 0.5 ? 1 : -1;
+            const ox = e.cx + side * (e.w/2 + e.w * (0.15 + rnd*0.35));
+            const oy = e.y + sy;
+            if (worldD % 1000 < 24) {                                             // cartello chilometrico
+                const hgt = 46*e.p;
+                ctx.fillStyle = '#aab4bf'; ctx.fillRect(ox-1.5*e.p, oy-hgt, 3*e.p, hgt);
+                ctx.fillStyle = '#ffc93c'; ctx.fillRect(ox-14*e.p, oy-hgt-16*e.p, 28*e.p, 14*e.p);
+                if (e.p > 0.45) { ctx.fillStyle = '#15181c'; ctx.font = 'bold ' + Math.round(10*e.p) + 'px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText((worldD/1000).toFixed(0) + 'km', ox, oy-hgt-5*e.p); ctx.textAlign = 'left'; }
+            } else if (rnd < 0.55) {                                              // albero
+                const hgt = (30 + rnd*40) * e.p;
+                ctx.fillStyle = '#3a2d20'; ctx.fillRect(ox-2*e.p, oy-hgt*0.4, 4*e.p, hgt*0.4);
+                ctx.fillStyle = rnd < 0.3 ? '#1d3a26' : '#24462c';
+                ctx.beginPath(); ctx.arc(ox, oy-hgt*0.62, hgt*0.34, 0, 7); ctx.fill();
+            } else {                                                              // paletto
+                ctx.fillStyle = '#d8dde2'; ctx.fillRect(ox-1.2*e.p, oy-16*e.p, 2.4*e.p, 16*e.p);
+                ctx.fillStyle = '#ff6b5e'; ctx.fillRect(ox-1.2*e.p, oy-16*e.p, 2.4*e.p, 4*e.p);
+            }
+        }
+    }
+    ctx.restore();
+    const vg = ctx.createRadialGradient(W/2, H*0.55, H*0.3, W/2, H*0.55, H*0.95);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+}
+
+/* ── 2D A GRAFICI: pendenza e velocità dell'intero percorso con
+   cursore di posizione, target vs prestazione reale ── */
+function drawReplay2D(i, kmhNow) {
+    const cv = document.getElementById('replay-canvas');
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    if (W < 10 || H < 10) return;
+    ctx.fillStyle = '#0a0c0e'; ctx.fillRect(0, 0, W, H);
+    const rq = RP.rq, total = RP.total;
+    const X = d => (d / total) * (W - 40) + 20;
+    // pannello pendenza (metà alta)
+    const py0 = H*0.16, py1 = H*0.52;
+    const sMin = Math.min(0, ...rq.slope), sMax = Math.max(2, ...rq.slope);
+    const SY = v => py1 - ((v - sMin) / (sMax - sMin || 1)) * (py1 - py0);
+    ctx.beginPath(); ctx.moveTo(X(0), py1);
+    for (let k = 0; k < rq.slope.length; k += Math.ceil(rq.slope.length/400)) ctx.lineTo(X(rq.cum[k]), SY(rq.slope[k]));
+    ctx.lineTo(X(total), py1); ctx.closePath();
+    const g1 = ctx.createLinearGradient(0, py0, 0, py1);
+    g1.addColorStop(0, 'rgba(255,201,60,.45)'); g1.addColorStop(1, 'rgba(255,201,60,.05)');
+    ctx.fillStyle = g1; ctx.fill();
+    // pendenza adattata (tapis) sopra
+    ctx.beginPath();
+    for (let k = 0, first = true; k < rq.incl.length; k += Math.ceil(rq.incl.length/400)) { const x = X(rq.cum[k]), y = SY(rq.incl[k]); first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false; }
+    ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#98a1ad'; ctx.font = (12*(devicePixelRatio||1)) + 'px monospace';
+    ctx.fillText('PENDENZA % (giallo = impostata sul tapis)', 20, py0 - 8);
+    // pannello velocità (metà bassa)
+    const vy0 = H*0.60, vy1 = H*0.90;
+    const vAll = rq.vT.concat(rq.vB);
+    const vMax = Math.max(5, ...vAll);
+    const VY = v => vy1 - (v / vMax) * (vy1 - vy0);
+    ctx.beginPath();
+    for (let k = 0, first = true; k < rq.vB.length; k += Math.ceil(rq.vB.length/400)) { const x = X(rq.cum[k]), y = VY(rq.vB[k]); first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false; }
+    ctx.strokeStyle = '#5a6572'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath();
+    for (let k = 0, first = true; k < rq.vT.length; k += Math.ceil(rq.vT.length/400)) { const x = X(rq.cum[k]), y = VY(rq.vT[k]); first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false; }
+    ctx.strokeStyle = '#5adca0'; ctx.lineWidth = 2; ctx.stroke();
+    // prestazione reale campionata
+    if (RP.samples.length > 1) {
+        ctx.beginPath();
+        RP.samples.forEach((s2, k) => { const x = X(s2[0]), y = VY(s2[1]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.fillStyle = '#98a1ad';
+    ctx.fillText('VELOCITÀ km/h (grigio = benchmark · verde = target · blu = tu)', 20, vy0 - 8);
+    // cursore di posizione
+    const cx = X(RP.pos);
+    ctx.strokeStyle = '#f2f4f7'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(cx, py0-4); ctx.lineTo(cx, vy1+4); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ffc93c'; ctx.beginPath(); ctx.arc(cx, SY(rq.slope[i]), 5*(devicePixelRatio||1), 0, 7); ctx.fill();
+    ctx.fillStyle = '#5adca0'; ctx.beginPath(); ctx.arc(cx, VY(rq.vT[i]), 5*(devicePixelRatio||1), 0, 7); ctx.fill();
+}
+
+function endReplay(completed) {
+    if (!RP) return;
+    const r = RP.r, km = RP.pos / 1000, dur = Math.round(RP.elapsed);
+    const bt = btActive();
+    if (bt) { BT.lastInclSent = null; BT.lastSpdSent = null; btSetIncline(0); btSetSpeed(1.0); }
+    document.getElementById('replay-overlay').classList.remove('on');
+    let sess = null;
+    if (dur > 30 && km > 0.1) {
+        const sessions = loadIndoor();
+        sess = { id: uid(), routeId: r.id, name: r.name, date: new Date().toISOString(), dur, km: +km.toFixed(2), completed: !!completed };
+        if (bt && RP.samples.length > 2) {
+            sess.res = { samples: RP.samples,
+                tTgt: Math.round(RP.rq.tTgt * Math.min(1, RP.pos / RP.total)),
+                eqAvg: +RP.rq.eqAvg.toFixed(2), clampedPct: RP.rq.clampedPct,
+                tgt: RP.rq.cum.filter((_, k) => k % Math.ceil(RP.rq.cum.length/300) === 0).map((d, k2) => {
+                    const k = k2 * Math.ceil(RP.rq.cum.length/300);
+                    return [Math.round(d), +RP.rq.vT[Math.min(k, RP.rq.vT.length-1)].toFixed(1)];
+                }) };
+        }
+        sessions.unshift(sess); saveIndoor(sessions);
+        simRenderAll();
+    }
+    const wasBt = bt && sess && sess.res;
+    RP = null;
+    if (wasBt) showChallengeResult(sess);
+    else if (completed && sess) alert('🏁 Replay completato: ' + km.toFixed(1) + ' km in ' + fmtTime(dur) + '. Sessione indoor salvata nelle statistiche.');
+}
+
+/* ── RISULTATO SFIDA: confronto target-vs-reale + analisi AI ── */
+let RES_SESS = null;
+function showChallengeResult(sess) {
+    RES_SESS = sess;
+    const res = sess.res;
+    const vReal = avgArr(res.samples.map(s => s[1]));
+    const vTgt = avgArr(res.tgt.map(s => s[1]));
+    const gap = res.tTgt - sess.dur;
+    const kpi = [
+        [fmtTime(sess.dur), 'tuo tempo'], [fmtTime(res.tTgt), 'riferimento adattato'],
+        [(gap >= 0 ? '+' : '−') + fmtTime(Math.abs(gap)), gap >= 0 ? 'in vantaggio' : 'in ritardo'],
+        [vReal.toFixed(1), 'tua vel media'], [vTgt.toFixed(1), 'vel target media'], [sess.km.toFixed(1), 'km percorsi']
+    ];
+    document.getElementById('res-kpi').innerHTML = kpi.map(k => `<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+    document.getElementById('res-ai').innerHTML = ''; document.getElementById('res-ai-status').textContent = '';
+    document.getElementById('result-overlay').style.display = 'block';
+    requestAnimationFrame(() => {
+        drawTwoLines(document.getElementById('res-chart'),
+            res.tgt.map(s => s[0]), res.tgt.map(s => s[1]),
+            resampleTo(res.samples, res.tgt.map(s => s[0])), '#ffc93c', '#5adca0', '');
+    });
+}
+function resampleTo(samples, xs) {  // porta i campioni reali sulle stesse ascisse del target
+    return xs.map(x => {
+        let best = samples[0];
+        for (const s of samples) if (Math.abs(s[0]-x) < Math.abs(best[0]-x)) best = s;
+        return Math.abs(best[0]-x) < 400 ? best[1] : 0;
+    });
+}
+async function aiChallenge() {
+    if (!RES_SESS || !RES_SESS.res) return;
+    const st = document.getElementById('res-ai-status');
+    st.textContent = 'Analizzo il risultato…';
+    const res = RES_SESS.res;
+    const gap = res.tTgt - RES_SESS.dur;
+    try {
+        const t = await geminiCallSimple('Sei un allenatore. Analizza in italiano (max 160 parole, testo semplice) questa sfida indoor su tapis: percorso "' + RES_SESS.name + '", ' + RES_SESS.km + ' km, tempo utente ' + fmtTime(RES_SESS.dur) + ' vs riferimento adattato ' + fmtTime(res.tTgt) + ' (gap ' + (gap>=0?'+':'') + gap + ' s), velocità media reale ' + avgArr(res.samples.map(s=>s[1])).toFixed(1) + ' vs target ' + avgArr(res.tgt.map(s=>s[1])).toFixed(1) + ' km/h, fattore equità applicato ' + res.eqAvg + ', ' + res.clampedPct + '% del percorso con pendenza ritagliata dal tapis. Considera i parametri fisici e lo stato di forma dell\'utente qui sotto: dove ha perso/guadagnato, cosa dice del suo stato di forma, un consiglio per la prossima sfida.\n\n' + buildAiContextSummary());
+        document.getElementById('res-ai').innerHTML = '<div class="ai-card">' + esc(t) + '</div>';
+        st.textContent = '';
+    } catch (e) { st.textContent = '⚠️ ' + e.message; }
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   TAPIS ROULANT via BLUETOOTH FTMS — MODALITÀ SFIDA (benchmark)
+
+   Filosofia:
+   - L'app comanda PENDENZA e VELOCITÀ del tapis seguendo la
+     prestazione registrata (il benchmark).
+   - La PENDENZA non è modificabile dall'utente (sarebbe barare):
+     se la macchina riporta un'inclinazione diversa da quella
+     comandata, l'app la RIPRISTINA (anti-cheat, controllo ogni 4 s).
+   - La VELOCITÀ sì: pulsanti −/＋ nel replay applicano un offset al
+     target del benchmark, per rallentare a recuperare o attaccare.
+   - Compensazione pendenza→velocità (Minetti): se il percorso sale
+     oltre il limite del tapis, il target di velocità aumenta per
+     mantenere lo stesso costo metabolico. Es: 10 km/h al 18% su un
+     tapis che si ferma al 15% → target ≈ 11.3 km/h.
+   - Fattore di equità: il target è scalato per il rapporto tra il
+     fattore corpo dello sfidante e quello del creatore del percorso.
+   - Limiti: sempre dentro Supported Speed/Inclination Range letti
+     dalla macchina ∩ profilo del modello (manuale o compilato
+     dall'AI) ∩ tetti assoluti (15% inclinazione, 1–20 km/h).
+   ═══════════════════════════════════════════════════════════════ */
+const FTMS_SERVICE = 0x1826;
+const CH_TREADMILL_DATA = 0x2acd;
+const CH_INCL_RANGE    = 0x2ad5;
+const CH_SPEED_RANGE   = 0x2ad4;
+const CH_CONTROL_POINT = 0x2ad9;
+const HARD_MAX_INCL = 150;            // 15.0 %
+const HARD_MAX_SPEED = 2000;          // 20.00 km/h (unità FTMS: 0.01 km/h)
+const HARD_MIN_SPEED = 100;           // 1.00 km/h — velocità minima richiesta
+const RES_NAME = { 1:'OK', 2:'opcode non supportato', 3:'parametro non valido', 4:'operazione fallita', 5:'controllo non permesso' };
+let BT = null;
+
+const btActive = () => !!(BT && BT.ok);
+function btStatus(msg) {
+    const el = document.getElementById('sbt-status'); if (el) el.textContent = msg;
+    try { setBtStatus(msg); } catch (e) {}   // eco sul pannello Run di Tappy
+}
+const machineProf = () => loadJ(K.machine, {});
+
+/* Limiti effettivi = intersezione: tetti assoluti ∩ range letti via BLE ∩ profilo modello */
+function btComputeLimits() {
+    const m = machineProf();
+    BT.effInclMin = Math.max(0, BT.range.min);
+    BT.effInclMax = Math.min(HARD_MAX_INCL, BT.range.max, m.maxInclinePct ? Math.round(m.maxInclinePct*10) : Infinity);
+    BT.inclStep   = m.inclineStepPct ? Math.max(1, Math.round(m.inclineStepPct*10)) : BT.range.inc;
+    BT.effSpdMin  = Math.max(HARD_MIN_SPEED, BT.spdRange.min, m.minSpeedKmh ? Math.round(m.minSpeedKmh*100) : 0);
+    BT.effSpdMax  = Math.min(HARD_MAX_SPEED, BT.spdRange.max, m.maxSpeedKmh ? Math.round(m.maxSpeedKmh*100) : Infinity);
+    BT.spdStep    = m.speedStepKmh ? Math.max(1, Math.round(m.speedStepKmh*100)) : Math.max(1, BT.spdRange.inc);
+}
+
+async function btConnect(allDevices) {
+    if (!navigator.bluetooth) return alert('Web Bluetooth non disponibile: usa Chrome/Edge su Android, Windows o Mac (https). Su iPhone Safari non è supportato.');
+    try {
+        btStatus('Ricerca tapis…');
+        const opts = allDevices
+            ? { acceptAllDevices: true, optionalServices: [FTMS_SERVICE] }
+            : { filters: [{ services: [FTMS_SERVICE] }], optionalServices: [FTMS_SERVICE] };
+        const device = await navigator.bluetooth.requestDevice(opts);
+        device.addEventListener('gattserverdisconnected', btOnDisconnected);
+        btStatus('Connessione a ' + (device.name || 'tapis') + '…');
+        const server = await device.gatt.connect();
+        let svc;
+        try { svc = await server.getPrimaryService(FTMS_SERVICE); }
+        catch (e) { device.gatt.disconnect(); throw new Error('"' + (device.name || 'dispositivo') + '" non espone il servizio FTMS (0x1826). Compila il profilo modello: l\'AI può dirti se usa un protocollo proprietario.'); }
+        BT = { device, virtual: false, speed: 0, machineIncl: null, lastInclSent: null, lastSpdSent: null,
+               lastSendT: 0, lastEnforceT: 0, busy: false, ok: false, controlled: false, pending: null,
+               range: { min: 0, max: HARD_MAX_INCL, inc: 10 }, spdRange: { min: HARD_MIN_SPEED, max: HARD_MAX_SPEED, inc: 10 } };  // default: pendenza a passi di 1.0%, velocità di 0.1 km/h
+        try { const dv = await (await svc.getCharacteristic(CH_INCL_RANGE)).readValue();
+              BT.range = { min: dv.getInt16(0, true), max: dv.getInt16(2, true), inc: Math.max(1, dv.getUint16(4, true)) }; } catch (e) {}
+        try { const dv = await (await svc.getCharacteristic(CH_SPEED_RANGE)).readValue();
+              BT.spdRange = { min: dv.getUint16(0, true), max: dv.getUint16(2, true), inc: Math.max(1, dv.getUint16(4, true)) }; } catch (e) {}
+        btComputeLimits();
+        try { const dc = await svc.getCharacteristic(CH_TREADMILL_DATA);
+              await dc.startNotifications();
+              dc.addEventListener('characteristicvaluechanged', btOnTreadmillData); } catch (e) {}
+        BT.ctrl = await svc.getCharacteristic(CH_CONTROL_POINT);
+        await BT.ctrl.startNotifications();
+        BT.ctrl.addEventListener('characteristicvaluechanged', btOnControlResponse);
+        const okCtl = await btAcquireControl();
+        BT.ok = true;
+        btAfterConnect(device.name || 'tapis', okCtl);
+    } catch (e) {
+        BT = null;
+        btStatus(/cancelled|chooser|cancel/i.test(String(e.message)) ? 'Ricerca annullata.' : '⚠️ ' + e.message);
+    }
+}
+function btAfterConnect(name, okCtl) {
+    btStatus((okCtl ? '✅' : '⚠️') + ' Connesso a "' + name + '". Inclinazione ' +
+        (BT.effInclMin/10).toFixed(1) + '÷' + (BT.effInclMax/10).toFixed(1) + '% (passo ' + (BT.inclStep/10).toFixed(1) + '%) · velocità ' +
+        (BT.effSpdMin/100).toFixed(1) + '÷' + (BT.effSpdMax/100).toFixed(1) + ' km/h (passo ' + (BT.spdStep/100).toFixed(2) + '). ' +
+        (okCtl ? 'Controllo acquisito, velocità di partenza ' + (HARD_MIN_SPEED/100).toFixed(1) + ' km/h.'
+               : 'Controllo non ancora concesso: prova un Test o avvia il nastro, l\'app riproverà da sola.'));
+    const tb = document.getElementById('sbt-testrow'); if (tb) tb.style.display = 'flex';
+    const bb = document.getElementById('sbt-beltrow'); if (bb) bb.style.display = 'block';
+}
+
+/* ── TAPIS VIRTUALE per test senza hardware ─────────────────────
+   Simula un tapis FTMS reale: rampe graduali verso i target
+   (velocità 0.4 km/h ogni 300 ms, inclinazione 0.4% ogni 300 ms),
+   riporta velocità e inclinazione "reali" come farebbe la macchina. */
+function btConnectVirtual() {
+    if (BT && BT.simTimer) clearInterval(BT.simTimer);
+    BT = { virtual: true, ok: true, controlled: true, speed: 0, machineIncl: 0,
+           lastInclSent: null, lastSpdSent: null, lastSendT: 0, lastEnforceT: 0, busy: false, pending: null,
+           range: { min: -30, max: 150, inc: 10 }, spdRange: { min: 80, max: 1800, inc: 10 },
+           sim: { v: 0, i: 0, vt: HARD_MIN_SPEED/100, it: 0 },
+           device: { gatt: { connected: true, disconnect: () => {} } } };
+    btComputeLimits();
+    BT.simTimer = setInterval(() => {
+        if (!BT || !BT.virtual) return;
+        const s = BT.sim;
+        s.v += Math.max(-0.4, Math.min(0.4, s.vt - s.v));
+        s.i += Math.max(-0.4, Math.min(0.4, s.it - s.i));
+        BT.speed = s.v / 3.6;
+        BT.machineIncl = +s.i.toFixed(1);
+        const el = document.getElementById('sbt-belt'); if (el) el.textContent = s.v.toFixed(1);
+        const el2 = document.getElementById('sbt-lastincl'); if (el2) el2.textContent = 'Tapis virtuale — inclinazione reale: ' + s.i.toFixed(1) + '% (target ' + s.it.toFixed(1) + '%) · velocità target ' + s.vt.toFixed(1) + ' km/h';
+        const el3 = document.getElementById('rp-incl'); if (el3) el3.textContent = s.i.toFixed(1) + '%';
+    }, 300);
+    btAfterConnect('Tapis virtuale (simulato)', true);
+}
+
+function btOnTreadmillData(e) {
+    const v = e.target.value;
+    if (v.byteLength < 4) return;
+    const flags = v.getUint16(0, true);
+    let off = 2;
+    if ((flags & 0x0001) === 0) {
+        const kmh = v.getUint16(off, true) / 100; off += 2;
+        BT.speed = kmh / 3.6;
+        const el = document.getElementById('sbt-belt'); if (el) el.textContent = kmh.toFixed(1);
+        // integrazione: la velocità reale alimenta il Live BT di Tappy
+        // (auto-avvio/arresto allenamento), tranne durante una sfida replay
+        try { if (typeof processBtLiveSample === 'function' && !RP && kmh >= 0 && kmh <= 30) processBtLiveSample(kmh, Date.now()); } catch (e) {}
+    }
+    if (flags & 0x0002) off += 2;
+    if (flags & 0x0004) off += 3;
+    if ((flags & 0x0008) && v.byteLength >= off + 4) {
+        BT.machineIncl = v.getInt16(off, true) / 10; off += 4;
+        const el = document.getElementById('rp-incl'); if (el) el.textContent = BT.machineIncl.toFixed(1) + '%';
+    }
+}
+function btOnControlResponse(e) {
+    const v = e.target.value;
+    if (v.byteLength < 3 || v.getUint8(0) !== 0x80) return;
+    const op = v.getUint8(1), res = v.getUint8(2);
+    if (BT && BT.pending && BT.pending.op === op) { const p = BT.pending; BT.pending = null; clearTimeout(p.to); p.resolve(res); }
+    if (res !== 0x01) btStatus('⚠️ Tapis: comando 0x0' + op.toString(16) + ' → ' + (RES_NAME[res] || 'errore ' + res) + '.');
+}
+async function btCommand(bytes) {
+    if (!BT || !BT.ctrl) return 0;
+    while (BT.busy) await new Promise(r => setTimeout(r, 120));
+    BT.busy = true;
+    try {
+        const wait = new Promise(resolve => { BT.pending = { op: bytes[0], resolve, to: setTimeout(() => { if (BT && BT.pending) { BT.pending = null; resolve(0); } }, 3000) }; });
+        try {
+            if (BT.ctrl.writeValueWithResponse) await BT.ctrl.writeValueWithResponse(bytes);
+            else await BT.ctrl.writeValue(bytes);
+        }
+        catch (e1) { try { await BT.ctrl.writeValueWithoutResponse(bytes); } catch (e2) { if (BT.pending) { clearTimeout(BT.pending.to); BT.pending = null; } return 0; } }
+        return await wait;
+    } finally { BT.busy = false; }
+}
+async function btAcquireControl() {
+    if (BT.virtual) return true;
+    let r = await btCommand(new Uint8Array([0x00]));
+    if (r !== 1) { await new Promise(w => setTimeout(w, 600)); r = await btCommand(new Uint8Array([0x00])); }
+    if (r !== 1) return false;
+    await btCommand(new Uint8Array([0x07]));
+    await btRawSpeed(HARD_MIN_SPEED);            // stato attivo alla minima di sicurezza (1.0 km/h)
+    BT.controlled = true;
+    return true;
+}
+function btOnDisconnected() { if (BT) { BT.ok = false; BT.controlled = false; } btStatus('Tapis disconnesso.');
+    const tb = document.getElementById('sbt-testrow'); if (tb) tb.style.display = 'none'; }
+function btDisconnect() {
+    try {
+        if (BT && BT.virtual) { clearInterval(BT.simTimer); }
+        else if (BT && BT.device && BT.device.gatt.connected) { btSetIncline(0); btSetSpeed(HARD_MIN_SPEED/100); setTimeout(() => BT.device.gatt.disconnect(), 600); }
+    } catch (e) {}
+    if (BT) { BT.ok = false; BT.controlled = false; }
+    btStatus('Disconnesso.');
+}
+
+/* Scritture grezze (già clampate a monte) */
+async function btRawIncl(d) {   // d in decimi di %
+    if (BT.virtual) { BT.sim.it = d / 10; BT.lastInclSent = d; BT.lastSendT = Date.now(); return 1; }
+    const buf = new Uint8Array(3); buf[0] = 0x03; new DataView(buf.buffer).setInt16(1, d, true);
+    let r = await btCommand(buf);
+    if (r === 5 || r === 0) { BT.controlled = false; if (await btAcquireControl()) r = await btCommand(buf); }
+    if (r === 1) { BT.lastInclSent = d; BT.lastSendT = Date.now(); }
+    return r;
+}
+async function btRawSpeed(c) {  // c in 0.01 km/h
+    if (BT.virtual) { BT.sim.vt = c / 100; BT.lastSpdSent = c; return 1; }
+    const buf = new Uint8Array(3); buf[0] = 0x02; new DataView(buf.buffer).setUint16(1, c, true);
+    let r = await btCommand(buf);
+    if (r === 5 || r === 0) { BT.controlled = false; if (await btAcquireControl()) r = await btCommand(buf); }
+    if (r === 1) BT.lastSpdSent = c;
+    return r;
+}
+/* API pubbliche con clamp completo */
+async function btSetIncline(pct) {
+    if (!btActive()) return;
+    if (!BT.controlled) await btAcquireControl();
+    let d = Math.round(pct * 10);
+    d = Math.max(BT.effInclMin, Math.min(BT.effInclMax, d));
+    d = Math.round(d / BT.inclStep) * BT.inclStep;
+    if (BT.lastInclSent === d) return;
+    if (await btRawIncl(d) === 1 && BT.machineIncl === null) {
+        const el = document.getElementById('rp-incl'); if (el) el.textContent = (d/10).toFixed(1) + '%';
+    }
+}
+async function btSetSpeed(kmh) {
+    if (!btActive()) return;
+    if (!BT.controlled) await btAcquireControl();
+    let c = Math.round(kmh * 100);
+    c = Math.max(BT.effSpdMin, Math.min(BT.effSpdMax, c));
+    c = Math.round(c / BT.spdStep) * BT.spdStep;
+    if (BT.lastSpdSent === c) return;
+    await btRawSpeed(c);
+}
+
+/* ── TICK DI SFIDA (chiamato dal replay ~ogni 2 s) ──────────────
+   slopeRoute: pendenza del percorso in questo punto (frazione)
+   vBench: velocità del benchmark in questo punto (m/s)
+   offset: regolazione utente in km/h (pulsanti −/＋)
+   route: percorso, per il fattore corpo del creatore
+   Ritorna il dettaglio del calcolo per l'HUD.                       */
+function btChallengeTick(slopeRoute, vBench, offsetKmh, route, force) {
+    if (!btActive()) return null;
+    const now = Date.now();
+    const iMachinePct = Math.min(slopeRoute * 100, BT.effInclMax / 10);   // pendenza effettivamente impostabile
+    // Compensazione Minetti: stesso costo metabolico se il tapis non arriva alla pendenza reale
+    const comp = slopeRoute * 100 > BT.effInclMax / 10 + 0.05
+        ? minettiC(slopeRoute) / minettiC(iMachinePct / 100) : 1;
+    // Fattore di equità: rapporto tra corpo dello sfidante e corpo del creatore
+    const Fme = bodyFactor(simProfile(), slopeRoute);
+    const Fcr = bodyFactor(route && route.creator, slopeRoute);
+    const eq = Math.max(0.85, Math.min(1.15, Fme / Fcr));
+    let target = vBench * 3.6 * comp * eq + offsetKmh;                     // km/h
+    target = Math.max(BT.effSpdMin / 100, Math.min(BT.effSpdMax / 100, target));
+    if (force || now - BT.lastSendT >= 2000) {
+        btSetIncline(iMachinePct);
+        btSetSpeed(target);
+        BT.lastSendT = now;
+        // Anti-cheat: se la macchina riporta un'inclinazione diversa da quella
+        // comandata (utente sulla console), la ripristiniamo.
+        if (BT.machineIncl !== null && BT.lastInclSent !== null && now - BT.lastEnforceT > 4000 &&
+            Math.abs(BT.machineIncl * 10 - BT.lastInclSent) > BT.inclStep) {
+            BT.lastEnforceT = now; const d = BT.lastInclSent; BT.lastInclSent = null; btRawIncl(d);
+        }
+    }
+    return { target, comp, eq, iMachinePct };
+}
+
+/* ── PROFILO MODELLO TAPIS (manuale o compilato dall'AI) ────────── */
+function saveMachineForm() {
+    const g = id => document.getElementById(id).value.trim();
+    const num = id => { const v = parseFloat(g(id)); return isNaN(v) ? null : v; };
+    const m = { model: g('m-model'), maxSpeedKmh: num('m-vmax'), minSpeedKmh: num('m-vmin'),
+                maxInclinePct: num('m-imax'), inclineStepPct: num('m-istep'), speedStepKmh: num('m-vstep'),
+                notes: machineProf().notes || '' };
+    saveJ(K.machine, m);
+    if (BT) btComputeLimits();
+    document.getElementById('m-status').textContent = '✅ Profilo macchina salvato' + (m.model ? ' per "' + m.model + '".' : '.');
+}
+function loadMachineIntoForm() {
+    const m = machineProf();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
+    set('m-model', m.model); set('m-vmax', m.maxSpeedKmh); set('m-vmin', m.minSpeedKmh);
+    set('m-imax', m.maxInclinePct); set('m-istep', m.inclineStepPct); set('m-vstep', m.speedStepKmh);
+    const st = document.getElementById('m-status');
+    if (st && m.model) st.textContent = 'Profilo attivo: ' + m.model + (m.notes ? ' — ' + m.notes : '');
+}
+async function aiMachineProfile() {
+    const model = document.getElementById('m-model').value.trim();
+    if (!model) return alert('Scrivi prima marca e modello del tapis (es. "Technogym MyRun", "Horizon 7.0 AT").');
+    const st = document.getElementById('m-status');
+    st.textContent = '🤖 Chiedo all\'AI i parametri di "' + model + '"…';
+    try {
+        const t = await geminiCallSimple('Sei un database tecnico di tapis roulant. Per il modello "' + model + '" restituisci SOLO un oggetto JSON (nessun testo attorno, nessun markdown) con questi campi: {"maxSpeedKmh":num,"minSpeedKmh":num,"maxInclinePct":num,"inclineStepPct":num,"speedStepKmh":num,"ftms":bool,"notes":"max 20 parole in italiano su protocollo e particolarità (es. serve avviare il nastro prima dei comandi)"}. Se non conosci il modello con certezza usa valori tipici della fascia e scrivilo nelle notes.');
+        const m = JSON.parse(t.replace(/```json|```/g, '').trim());
+        const prof = { model, maxSpeedKmh: +m.maxSpeedKmh || null, minSpeedKmh: +m.minSpeedKmh || 1,
+                       maxInclinePct: +m.maxInclinePct || null, inclineStepPct: +m.inclineStepPct || 1.0,
+                       speedStepKmh: +m.speedStepKmh || 0.1, notes: String(m.notes || '').slice(0, 160), source: 'ai' };
+        saveJ(K.machine, prof); loadMachineIntoForm();
+        if (BT) btComputeLimits();
+        st.textContent = '✅ Parametri AI applicati per "' + model + '": vel ' + prof.minSpeedKmh + '–' + prof.maxSpeedKmh +
+            ' km/h, incl max ' + prof.maxInclinePct + '% (passo ' + prof.inclineStepPct + '%).' + (prof.notes ? ' Note: ' + prof.notes : '') +
+            ' Verranno sempre incrociati con i limiti letti via Bluetooth.';
+    } catch (e) { st.textContent = '⚠️ ' + e.message + ' — puoi inserire i parametri a mano qui sotto.'; }
+}
+
+
+/* ── STATO DI FORMA (SFS 0–100) — vedi il dettaglio nella card ── */
+function runningSessions() {
+    const routes = loadRoutes(); const rmap = {}; routes.forEach(r => rmap[r.id] = r);
+    const out = routes.filter(r => r.mode === 'corsa').map(r => ({ date: r.date, km: r.st.km, dur: r.dur, vavg: r.st.vavg,
+        slope: r.st.km > 0 ? r.st.dplus / (r.st.km * 1000) : 0 }));
+    const ind = loadIndoor().filter(s => rmap[s.routeId] && rmap[s.routeId].mode === 'corsa').map(s => {
+        const r = rmap[s.routeId];
+        return { date: s.date, km: s.km, dur: s.dur, vavg: s.dur ? s.km / (s.dur / 3600) : 0,
+                 slope: r.st.km > 0 ? r.st.dplus / (r.st.km * 1000) : 0 }; });
+    return out.concat(ind).sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+function computeSFS() {
+    const p = simProfile();
+    const ss = runningSessions();
+    if (ss.length < 5) return { ready: false, n: ss.length, need: 5 };
+    const now = Date.now();
+    const veq = ss.map(s => ({ t: new Date(s.date).getTime(), v: s.vavg * minettiC(s.slope) / 3.6, km: s.km }));
+    // Capacità (40): media pesata esponenziale delle velocità piano-equivalenti (semivita 21 gg)
+    let wsum = 0, vsum = 0;
+    veq.forEach(x => { const w = Math.exp(-(now - x.t) / (21 * 86400000)); wsum += w; vsum += w * x.v; });
+    const vW = wsum ? vsum / wsum : 0;
+    const cap = clamp01((vW - 6) / 11) * 40;
+    // Volume (20): km di corsa negli ultimi 28 giorni
+    const km28 = ss.filter(s => now - new Date(s.date).getTime() < 28 * 86400000).reduce((a, s) => a + s.km, 0);
+    const vol = clamp01(km28 / 120) * 20;
+    // Costanza (20): settimane attive su 6 + frequenza media (pieno a 3.5/settimana)
+    const wk = new Set(); let n6 = 0;
+    ss.forEach(s => { const age = now - new Date(s.date).getTime();
+        if (age >= 0 && age < 42 * 86400000) { n6++; wk.add(Math.floor(age / (7 * 86400000))); } });
+    const cons = (0.5 * (wk.size / 6) + 0.5 * clamp01(n6 / 6 / 3.5)) * 20;
+    // Progresso (10): trend delle v_eq (km/h guadagnati a settimana)
+    let prog = 5;
+    if (veq.length >= 3) {
+        const xs = veq.map(x => (x.t - veq[0].t) / (7 * 86400000)), ys = veq.map(x => x.v);
+        const mx = avgArr(xs), my = avgArr(ys);
+        const den = xs.reduce((a, x) => a + (x - mx) ** 2, 0);
+        const b = den ? xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / den : 0;
+        prog = clamp01(0.5 + b / 0.8) * 10;
+    }
+    // Corpo (10): % massa magra (da massa grassa % o massa magra kg)
+    let fat = 22;
+    if (p.fatPct !== undefined && p.fatPct !== null && p.fatPct !== '') fat = +p.fatPct;
+    else if (p.leanMass && p.weight) fat = (1 - p.leanMass / p.weight) * 100;
+    const MM = 100 - fat;
+    const body = clamp01((MM - 60) / 25) * 10;
+    return { ready: true, total: Math.round(cap + vol + cons + prog + body),
+             parts: { 'Capacità': [Math.round(cap), 40], 'Volume': [Math.round(vol), 20], 'Costanza': [Math.round(cons), 20], 'Progresso': [Math.round(prog), 10], 'Corpo': [Math.round(body), 10] },
+             vW: +vW.toFixed(1), km28: Math.round(km28), n: ss.length, MM: Math.round(MM) };
+}
+function renderSFS() {
+    const el = document.getElementById('sfs-box');
+    if (!el) return;
+    const s = computeSFS();
+    if (!s.ready) { el.innerHTML = '<p class="hint">Servono almeno ' + s.need + ' allenamenti di corsa (outdoor o replay indoor su percorsi di corsa) — ne hai ' + s.n + '. Continua ad allenarti!</p>'; return; }
+    const bars = Object.entries(s.parts).map(([k, v]) =>
+        '<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>' + k + '</span><span style="font-family:var(--mono)">' + v[0] + '/' + v[1] + '</span></div>' +
+        '<div style="height:6px;background:var(--panel);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + Math.round(v[0] / v[1] * 100) + '%;background:var(--tel)"></div></div></div>').join('');
+    el.innerHTML = '<div style="display:flex;align-items:center;gap:14px"><div style="font-family:var(--mono);font-size:44px;font-weight:800;color:var(--lane)">' + s.total + '</div>' +
+        '<div class="hint">SFS su ' + s.n + ' allenamenti di corsa · velocità piano-equivalente ' + s.vW + ' km/h · ' + s.km28 + ' km negli ultimi 28 gg · massa magra ' + s.MM + '%</div></div>' + bars;
+}
+
+function openIndoorResult(id) {
+    const sess = loadIndoor().find(x => x.id === id);
+    if (sess && sess.res) showChallengeResult(sess);
+}
+function renderIndoorList() {
+    const el = document.getElementById('sim-indoor-list');
+    if (!el) return;
+    const ss = loadIndoor().slice(0, 15);
+    el.innerHTML = ss.length ? ss.map(s => `
+        <div class="route-item" onclick="openIndoorResult('${s.id}')">
+            <div class="top"><div class="name">🎮 ${esc(s.name)}</div>${s.res ? '<span class="badge indoor">SFIDA</span>' : ''}</div>
+            <div class="meta">${fmtDate(s.date)} · ${s.km.toFixed(1)} km · ${fmtTime(s.dur)}${s.res ? ' · tocca per il confronto' : ''}</div>
+        </div>`).join('') : '<p class="hint">Nessuna sessione indoor ancora: apri un percorso e premi Replay.</p>';
+}
+function simRenderAll() { renderRouteList(); renderIndoorList(); renderSFS(); }
+/* ── COACH MIGLIORATO: il contesto AI di Tappy viene arricchito con
+   percorsi registrati, sfide indoor e Simmy Fitness Score ── */
+function simExtraContext() {
+    let s = '';
+    try {
+        const routes = loadRoutes().slice(0, 10);
+        if (routes.length) {
+            s += '\nPercorsi reali registrati col tracker (ultimi ' + routes.length + '):\n';
+            routes.forEach(r => { s += `- ${r.name}: ${r.st.km} km, ${fmtTime(r.dur)}, D+ ${r.st.dplus} m, vel media ${r.st.vavg} km/h, superficie ${surfaceName(r.st.rgAvg)}` + (r.st.cadAvg ? `, cadenza ${r.st.cadAvg} spm, falcata ${r.st.stride} m` : '') + '\n'; });
+        }
+        const ind = loadIndoor().slice(0, 8);
+        if (ind.length) {
+            s += 'Sfide/replay indoor sul tapis:\n';
+            ind.forEach(i => { s += `- ${i.name}: ${i.km} km in ${fmtTime(i.dur)}` + (i.res ? ` (sfida: riferimento ${fmtTime(i.res.tTgt)}, gap ${i.res.tTgt - i.dur >= 0 ? '+' : ''}${i.res.tTgt - i.dur}s, equità ${i.res.eqAvg})` : '') + '\n'; });
+        }
+        const f = computeSFS();
+        if (f.ready) s += 'Simmy Fitness Score corsa: ' + f.total + '/100 (' + Object.entries(f.parts).map(([k,v]) => k + ' ' + v[0] + '/' + v[1]).join(', ') + '), v piano-equivalente ' + f.vW + ' km/h, ' + f.km28 + ' km/28gg.\n';
+    } catch (e) {}
+    return s;
+}
+const _tappyCtx = buildAiContextSummary;
+buildAiContextSummary = function () { return _tappyCtx() + simExtraContext(); };
+/* backup Drive di Tappy esteso ai nuovi dati */
+const _tappyCollect = collectAllData;
+collectAllData = function () {
+    const d = _tappyCollect();
+    d.simRoutes = loadRoutes(); d.simIndoor = loadIndoor(); d.simMachine = machineProf();
+    return d;
+};
+const _tappyApply = applyAllData;
+applyAllData = function (d) {
+    _tappyApply(d);
+    if (d.simRoutes) saveRoutes(d.simRoutes);
+    if (d.simIndoor) saveIndoor(d.simIndoor);
+    if (d.simMachine) saveJ(K.machine, d.simMachine);
+};
+/* il pulsante Bluetooth storico di Tappy ora usa lo stack completo FTMS
+   (parsing con i flag: velocità E pendenza corrette, comandi inclusi) */
+connectBluetoothTreadmill = function () { return btConnect(false); };
+/* navigazione estesa */
+const _tappySwitch = switchView;
+switchView = function (view) {
+    ['tracker', 'routes'].forEach(v => {
+        const el = document.getElementById('view-' + v); if (el) el.classList.toggle('active', view === v);
+        const nb = document.getElementById('nav-' + v); if (nb) nb.classList.toggle('active', view === v);
+    });
+    if (view === 'tracker' || view === 'routes') {
+        ['workout', 'history', 'io', 'support'].forEach(v => {
+            document.getElementById('view-' + v).classList.remove('active');
+            document.getElementById('nav-' + v).classList.remove('active');
+        });
+        if (view === 'routes') simRenderAll();
+        try { window.scrollTo({ top: 0 }); } catch (e) {}
+        return;
+    }
+    _tappySwitch(view);
+};
+/* init del modulo */
+(function () {
+    try { loadMachineIntoForm(); loadMapsKeyIntoForm(); simRenderAll(); } catch (e) { console.error('init simx', e); }
+})();
+function loadMapsKeyIntoForm() {
+    const key = mapsKey();
+    const el = document.getElementById('maps-key'); if (el) el.value = key;
+    const st = document.getElementById('maps-status');
+    if (st) st.textContent = key ? '✅ Mappa satellitare e altimetria del terreno attive.' : 'Senza chiave: mini-mappa disegnata e altimetria dal GPS.';
+}
+function saveMapsKey() {
+    const key = document.getElementById('maps-key').value.trim();
+    if (key) localStorage.setItem(K.mapsKey, key); else localStorage.removeItem(K.mapsKey);
+    loadMapsKeyIntoForm();
+}
+
+</script>
 </body>
 </html>
