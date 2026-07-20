@@ -1336,6 +1336,7 @@
                 <tr><td>1</td><td>Vai su <b>console.cloud.google.com</b> e accedi con un account Google.</td></tr>
                 <tr><td>2</td><td>Crea un <b>nuovo progetto</b> (es. "Tappy") e selezionalo in alto.</td></tr>
                 <tr><td>3</td><td>Menu → <b>API e servizi → Libreria</b>: premi <b>Abilita</b> su <b>Maps JavaScript API</b> e su <b>Elevation API</b> (servono entrambe: mappa satellitare + altimetria del terreno).</td></tr>
+                <tr><td>3b</td><td>Facoltativo ma consigliato: abilita anche <b>Street View Static API</b> per lo sfondo fotografico reale nel replay 3D (pulsante 📷).</td></tr>
                 <tr><td>4</td><td>Menu → <b>API e servizi → Credenziali → + Crea credenziali → Chiave API</b>. Copia la chiave (inizia con AIza…).</td></tr>
                 <tr><td>5</td><td>Consigliato: apri la chiave → <b>Limitazioni applicazione → Siti web</b> e aggiungi il tuo indirizzo (es. <b>https://tuonome.github.io/*</b>); sotto <b>Limitazioni API</b> spunta solo le due API di cui sopra.</td></tr>
                 <tr><td>6</td><td>Serve la Fatturazione attiva sul progetto, ma il credito gratuito mensile di Google copre ampiamente l'uso personale.</td></tr>
@@ -3866,6 +3867,7 @@ REGOLE:
         <canvas class="chart" id="rd-rough" height="34"></canvas>
         <hr class="sep">
         <div class="kpi-grid" id="rd-kpi"></div>
+        <div id="rd-challenges"></div>
         <hr class="sep">
         <div class="btn-row">
             <button class="lane" onclick="startReplay(RD_ID)">🎮 Replay / Sfida sul tapis</button>
@@ -3934,6 +3936,21 @@ REGOLE:
         </div>
         <div id="sbt-beltrow" style="display:none" class="hint">Nastro: <span id="sbt-belt" style="font-family:monospace;color:var(--accent-blue)">0.0</span> km/h · <span id="sbt-lastincl"></span></div>
         <p class="hint" id="sbt-status" style="margin-top:6px">Non connesso.</p>
+        <hr class="sep">
+        <label>Fascia cardio (Bluetooth, servizio 0x180D)</label>
+        <div class="btn-row">
+            <button class="ghost small" onclick="hrConnect()">❤️ Connetti fascia</button>
+            <button class="ghost small" onclick="hrDisconnect()">Disconnetti</button>
+        </div>
+        <div class="btn-row" style="margin-top:6px">
+            <div><label>FC max (per le zone Z1–Z5)</label><input id="hr-max" type="number" inputmode="numeric" placeholder="190"></div>
+            <div style="flex:.7"><label>Live</label><div style="font-family:monospace;font-size:22px;font-weight:800;color:#ff6b5e;padding-top:4px"><span id="hr-live">—</span><span style="font-size:11px"> bpm</span></div></div>
+        </div>
+        <button class="ghost small" onclick="saveHrMax()">Salva FC max</button>
+        <p class="hint" id="hr-status"></p>
+        <hr class="sep">
+        <button class="ghost small" onclick="btDownloadLog()">🧾 Scarica log diagnostico FTMS</button>
+        <p class="hint">Se il tuo tapis fa i capricci, scarica il log dopo qualche comando e mandamelo: si tara il profilo in minuti.</p>
     </div>
 </div>
 
@@ -3948,6 +3965,14 @@ REGOLE:
         <label>Velocità — benchmark vs target compensato</label>
         <canvas class="chart" id="pf-speed" height="110"></canvas>
         <p class="hint" id="pf-ai"></p>
+        <label>Durata settori (media dei comandi al tapis)</label>
+        <div class="btn-row" id="pf-sect">
+            <button class="ghost small" data-s="10" onclick="preflySect(10)">Fine · 10 s</button>
+            <button class="ghost small" data-s="30" onclick="preflySect(30)">Standard · 30 s</button>
+            <button class="ghost small" data-s="60" onclick="preflySect(60)">Morbido · 60 s</button>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;cursor:pointer"><input type="checkbox" id="pf-wu" checked style="width:auto;margin:0"> Riscaldamento e defaticamento automatici (2 min ciascuno)</label>
+
         <div style="height:10px"></div>
         <div class="btn-row">
             <button class="primary" onclick="preflyConfirm()">✅ Conferma e parti</button>
@@ -3958,12 +3983,17 @@ REGOLE:
 <div id="result-overlay" class="simx" style="position:fixed;inset:0;background:rgba(10,12,14,.94);z-index:998;display:none;overflow-y:auto;padding:14px">
     <div class="card" style="max-width:560px;margin:20px auto">
         <h2>🏁 Risultato sfida</h2>
+        <p class="hint" id="res-record" style="font-weight:700"></p>
         <div class="kpi-grid" id="res-kpi"></div>
         <div style="height:8px"></div>
         <label>Velocità sulla distanza — target vs prestazione reale</label>
         <canvas class="chart" id="res-chart" height="150"></canvas>
         <div style="height:8px"></div>
-        <button class="ghost" onclick="aiChallenge()">🤖 Analisi AI del risultato (fisico + stato di forma)</button>
+        <div class="btn-row">
+            <button class="ghost" onclick="aiChallenge()">🤖 Analisi AI del risultato</button>
+            <button class="ghost" onclick="exportChallengeGpx()">📍 Esporta sfida (GPX)</button>
+            <button class="ghost" onclick="exportChallengeAsRoute()">👥 Sfida un amico (.json)</button>
+        </div>
         <p class="hint" id="res-ai-status"></p>
         <div id="res-ai"></div>
         <div style="height:8px"></div>
@@ -3972,19 +4002,24 @@ REGOLE:
 </div>
 <div id="replay-overlay" class="simx">
     <canvas id="replay-canvas"></canvas>
+    <div id="rp-video" style="position:absolute;inset:0;display:none;background:#000"></div>
     <div id="replay-hud">
         <div class="hud-box"><div class="v" id="rp-speed">0</div><div class="l">km/h</div></div>
         <div class="hud-box"><div class="v" id="rp-slope">0%</div><div class="l">pendenza</div></div>
         <div class="hud-box" id="rp-incl-box" style="display:none"><div class="v" id="rp-incl" style="color:var(--accent-orange)">0%</div><div class="l">tapis</div></div>
         <div class="hud-box" id="rp-gap-box" style="display:none"><div class="v" id="rp-gap">±0s</div><div class="l">vs benchmark</div></div>
+        <div class="hud-box" id="rp-hr-box" style="display:none"><div class="v" id="rp-hr" style="color:#ff6b5e">—</div><div class="l">bpm</div></div>
         <div class="hud-box"><div class="v" id="rp-dist">0.0</div><div class="l">km</div></div>
         <div class="hud-box"><div class="v" id="rp-time">00:00</div><div class="l">tempo</div></div>
     </div>
     <div id="rp-chal" style="position:absolute;bottom:92px;left:12px;right:12px;text-align:center;font-size:11px;color:var(--text-muted);font-family:monospace"></div>
     <div id="replay-progress"><div id="rp-bar"></div></div>
     <div id="replay-controls">
+        <button class="warn" onclick="rpEmergency()" id="rp-stop" style="display:none;flex:1.2">🛑 STOP</button>
         <button class="ghost" onclick="rpAdjust(-0.5)" id="rp-minus" style="display:none">−0.5</button>
         <button class="ghost" onclick="rpAdjust(0.5)" id="rp-plus" style="display:none">＋0.5</button>
+        <button class="ghost" onclick="rpToggleAudio()" id="rp-audio" style="display:none">🔊</button>
+        <button class="ghost" onclick="rpToggleSV()" id="rp-sv" style="display:none;opacity:.55">📷</button>
         <button class="ghost" onclick="rpToggleView()" id="rp-view">2D</button>
         <button class="ghost" onclick="replaySpeed()" id="rp-x">1×</button>
         <button class="ghost" onclick="replayPause()" id="rp-pause">⏸ Pausa</button>
@@ -4552,9 +4587,19 @@ function openRoute(id) {
         [r.st.vmax + '', 'km/h max'], ['+' + r.st.dplus, 'dislivello m'], [r.st.curves + '', 'curve'],
         [surfaceName(r.st.rgAvg), 'superficie prevalente'], [surfaceName(r.st.rgMax), 'tratto peggiore'], [r.st.maxLatG.toFixed(2), 'G max curva']
     ];
+    try {
+        const Pw = (simProfile().weight) || 72; let kc = 0;
+        for (let ii = 1; ii < r.pts.length; ii++) {
+            const dd = hav({lat:r.pts[ii-1][1],lon:r.pts[ii-1][2]},{lat:r.pts[ii][1],lon:r.pts[ii][2]});
+            const dz = (r.pts[ii][3] !== null && r.pts[ii-1][3] !== null) ? r.pts[ii][3] - r.pts[ii-1][3] : 0;
+            kc += minettiC(dd ? dz / dd : 0) * Pw * dd;
+        }
+        kpi.push([Math.round(kc / 4184) + '', 'kcal stimate']);
+    } catch (e) {}
     if (r.mode === 'corsa' && r.st.cadAvg) kpi.push([r.st.cadAvg + '', 'cadenza spm'], [r.st.stride + '', 'falcata m'], [(r.st.dminus||0)+'', 'D− m']);
     if (r.mode !== 'corsa' && r.st.gBrkMax !== undefined) kpi.push(['+' + (r.st.gAccMax||0), 'G accel max'], ['−' + (r.st.gBrkMax||0), 'G frenata max'], [(r.st.dminus||0)+'', 'D− m']);
     document.getElementById('rd-kpi').innerHTML = kpi.map(k => `<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+    renderRouteChallenges(id);
     // mappa Google satellitare se configurata, altrimenti canvas
     loadGMaps(ok => {
         const g = document.getElementById('rd-gmap');
@@ -4725,14 +4770,33 @@ function importGpxFile(input) {
    3) FINE: grafico di confronto target-vs-reale e analisi AI che
       considera risultato, parametri fisici e stato di forma.
    ═══════════════════════════════════════════════════════════════ */
-let RP = null, PREFLY = null;
+let RP = null, PREFLY = null, AC = null;
 
-/* Riqualificazione: per ogni punto del percorso calcola pendenza
-   levigata (~60 m), pendenza impostabile sul tapis e velocità target.
-   comp = C(pendenza reale)/C(pendenza tapis) — vale in entrambe le
-   direzioni: 10 km/h al 18% su tapis max 15% → 11.3 km/h;
-   12 km/h al −4% su tapis min 0% → 9.7 km/h (stesso sforzo). */
-function requalifyRoute(r) {
+/* ── AUDIO COACHING: beep (WebAudio) + voce italiana (SpeechSynthesis).
+   Annuncia i cambi di settore 5 s prima: sul tapis non guardi lo schermo. ── */
+function rpBeep(n) { if (!RP || !RP.audio) return; try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime;
+    for (let i = 0; i < (n || 2); i++) {
+        const o = AC.createOscillator(), g = AC.createGain();
+        o.frequency.value = 880; o.connect(g); g.connect(AC.destination);
+        g.gain.setValueAtTime(0.15, t + i * 0.25);
+        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.25 + 0.18);
+        o.start(t + i * 0.25); o.stop(t + i * 0.25 + 0.2);
+    } } catch (e) {} }
+function rpSay(txt) { if (!RP || !RP.audio || !window.speechSynthesis) return; try {
+    const u = new SpeechSynthesisUtterance(txt); u.lang = 'it-IT'; u.rate = 1.05;
+    speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
+function rpAnnounce(txt, beeps) { rpBeep(beeps); rpSay(txt); try { if (navigator.vibrate) navigator.vibrate([120, 70, 120]); } catch (e) {} }
+function rpToggleAudio() { if (!RP) return; RP.audio = !RP.audio;
+    const b = document.getElementById('rp-audio'); if (b) b.textContent = RP.audio ? '🔊' : '🔇';
+    if (!RP.audio) try { speechSynthesis.cancel(); } catch (e) {} }
+function setRpx(label, disabled) { const b = document.getElementById('rp-x'); if (b) { b.textContent = label; b.disabled = !!disabled; } }
+function rpStartRun() { if (!RP) return; RP.phase = 'run'; RP.lastT = performance.now();
+    setRpx('🏃 SFIDA', true); if (btActive()) BT.lastSendT = 0;
+    rpAnnounce('Riscaldamento completato. Si parte!', 3); }
+
+function requalifyRoute(r, sectS) {
     const pts = r.pts, n = pts.length;
     const cum = [0];
     for (let i = 1; i < n; i++) cum.push(cum[i-1] + hav({lat:pts[i-1][1],lon:pts[i-1][2]},{lat:pts[i][1],lon:pts[i][2]}));
@@ -4754,7 +4818,7 @@ function requalifyRoute(r) {
        al tapis arrivano le MEDIE del settore, che cambiano solo al
        confine. Meno fedele al centimetro, ma corribile; la grafica
        del replay continua a usare il profilo fine.                  */
-    const SECT_S = 30, SECT_M = 150;
+    const SECT_S = sectS || 30, SECT_M = Math.max(60, (sectS || 30) * 5);
     const sIncl = new Array(n), sVT = new Array(n), sComp = new Array(n), sEq = new Array(n);
     let nSect = 0, s0 = 0;
     for (let i = 1; i <= n; i++) {
@@ -4810,61 +4874,217 @@ function drawTwoLines(cv, x, y1, y2, c1, c2, unit) {
 }
 function startReplay(id) {
     const r = loadRoutes().find(x => x.id === id); if (!r) return;
-    const rq = requalifyRoute(r);
     if (btActive()) {
-        // schermata di conferma con i grafici della riqualificazione
-        PREFLY = { r, rq };
-        const m = machineProf();
-        document.getElementById('pf-summary').innerHTML =
-            'Tapis: <b>' + (m.model || (BT.virtual ? 'virtuale' : 'connesso')) + '</b> — pendenza ' + rq.iMin.toFixed(1) + '÷' + rq.iMax.toFixed(1) + '%, velocità ' +
-            (BT.effSpdMin/100).toFixed(1) + '÷' + (BT.effSpdMax/100).toFixed(1) + ' km/h.<br>' +
-            '<b>' + rq.clampedPct + '%</b> del percorso ha pendenze fuori dal range del tapis: lì la pendenza è stata ritagliata e la <b>velocità target compensata</b> per mantenere lo stesso sforzo (Minetti) — sia in salita (target più alto) sia in discesa (target più basso).<br>' +
-            'Fattore di equità medio vs creatore: <b>×' + rq.eqAvg.toFixed(2) + '</b>' +
-            (Math.abs(rq.eqAvg-1) < 0.005 ? ' (stesso fisico o dati mancanti)' : rq.eqAvg < 1 ? ' (fisico più pesante: target ridotto)' : ' (fisico più leggero: target aumentato)') + '.<br>' +
-            'Tempo benchmark originale <b>' + fmtTime(rq.tB) + '</b> → tempo di riferimento adattato <b>' + fmtTime(rq.tTgt) + '</b>.<br>' +
-            'Comandi al tapis per <b>settori di ~' + rq.sectS + ' s</b> (' + rq.nSect + ' settori): pendenza e velocità sono le medie del settore e cambiano solo al suo confine — niente saliscendi continui a ogni campione GPS.';
-        document.getElementById('pf-ai').textContent = '';
+        PREFLY = { r, sectS: 30, rq: requalifyRoute(r, 30) };
         document.getElementById('prefly-overlay').style.display = 'block';
-        requestAnimationFrame(() => {
-            drawTwoLines(document.getElementById('pf-slope'), rq.cum, rq.slope, rq.incl, '#98a1ad', '#ffc93c', '%');
-            drawTwoLines(document.getElementById('pf-speed'), rq.cum, rq.vB, rq.vT, '#98a1ad', '#5adca0', '');
-        });
-        // nota AI facoltativa e non bloccante
+        preflyRender();
         if (getAiKey()) {
-            geminiCallSimple('In UNA sola frase italiana (max 30 parole) spiega a un utente questo adattamento del suo percorso al tapis: ' + rq.clampedPct + '% del percorso fuori range pendenza ' + rq.iMin + '–' + rq.iMax + '%, compensazione di velocità a pari sforzo, fattore equità ' + rq.eqAvg.toFixed(2) + '.')
-                .then(t => { const el = document.getElementById('pf-ai'); if (el && PREFLY) el.textContent = '🤖 ' + t.trim(); }).catch(() => {});
+            const rq = PREFLY.rq;
+            geminiCallSimple('In UNA sola frase italiana (max 30 parole) spiega a un utente questo adattamento del suo percorso al tapis: ' + rq.clampedPct + '% del percorso fuori range pendenza ' + rq.iMin + '\u2013' + rq.iMax + '%, compensazione di velocit\u00e0 a pari sforzo, fattore equit\u00e0 ' + rq.eqAvg.toFixed(2) + ', comandi mediati per settori di ' + rq.sectS + ' secondi.')
+                .then(t => { const el = document.getElementById('pf-ai'); if (el && PREFLY) el.textContent = '\ud83e\udd16 ' + t.trim(); }).catch(() => {});
         }
         return;
     }
-    beginReplay(r, rq);
+    beginReplay(r, requalifyRoute(r, 30), false);
 }
-function preflyConfirm() { if (!PREFLY) return; document.getElementById('prefly-overlay').style.display = 'none'; beginReplay(PREFLY.r, PREFLY.rq); PREFLY = null; }
+/* selettore durata settori: 10 s (fine) / 30 s / 60 s */
+function preflySect(s) { if (!PREFLY) return; PREFLY.sectS = s; PREFLY.rq = requalifyRoute(PREFLY.r, s); preflyRender(); }
+function preflyRender() {
+    const rq = PREFLY.rq, m = machineProf();
+    document.querySelectorAll('#pf-sect button').forEach(b => {
+        const on = +b.dataset.s === PREFLY.sectS;
+        b.style.borderColor = on ? '#ffc93c' : '';
+        b.style.color = on ? '#ffc93c' : '';
+    });
+    document.getElementById('pf-summary').innerHTML =
+        'Tapis: <b>' + (m.model || (BT.virtual ? 'virtuale' : 'connesso')) + '</b> \u2014 pendenza ' + rq.iMin.toFixed(1) + '\u00f7' + rq.iMax.toFixed(1) + '%, velocit\u00e0 ' +
+        (BT.effSpdMin/100).toFixed(1) + '\u00f7' + (BT.effSpdMax/100).toFixed(1) + ' km/h.<br>' +
+        '<b>' + rq.clampedPct + '%</b> del percorso ha pendenze fuori dal range del tapis: l\u00ec la pendenza \u00e8 stata ritagliata e la <b>velocit\u00e0 target compensata</b> a pari sforzo (Minetti) \u2014 in salita e in discesa.<br>' +
+        'Fattore di equit\u00e0 medio vs creatore: <b>\u00d7' + rq.eqAvg.toFixed(2) + '</b>' +
+        (Math.abs(rq.eqAvg-1) < 0.005 ? ' (stesso fisico o dati mancanti)' : rq.eqAvg < 1 ? ' (fisico pi\u00f9 pesante: target ridotto)' : ' (fisico pi\u00f9 leggero: target aumentato)') + '.<br>' +
+        'Tempo benchmark <b>' + fmtTime(rq.tB) + '</b> \u2192 riferimento adattato <b>' + fmtTime(rq.tTgt) + '</b> \u00b7 <b>' + rq.nSect + ' settori</b> da ~' + rq.sectS + ' s: i comandi cambiano solo al confine del settore.';
+    requestAnimationFrame(() => {
+        drawTwoLines(document.getElementById('pf-slope'), rq.cum, rq.slope, rq.incl, '#98a1ad', '#ffc93c', '%');
+        drawTwoLines(document.getElementById('pf-speed'), rq.cum, rq.vB, rq.vT, '#98a1ad', '#5adca0', '');
+    });
+}
+function preflyConfirm() {
+    if (!PREFLY) return;
+    try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    document.getElementById('prefly-overlay').style.display = 'none';
+    const wuEl = document.getElementById('pf-wu');
+    beginReplay(PREFLY.r, PREFLY.rq, !wuEl || wuEl.checked);
+    PREFLY = null;
+}
 function preflyCancel() { PREFLY = null; document.getElementById('prefly-overlay').style.display = 'none'; }
 
-function beginReplay(r, rq) {
+function beginReplay(r, rq, wu) {
     const hds = [0];
     for (let i = 1; i < r.pts.length; i++) hds.push(bearing({lat:r.pts[i-1][1],lon:r.pts[i-1][2]},{lat:r.pts[i][1],lon:r.pts[i][2]}));
     const tim = r.pts.map(p => (p[0] - r.pts[0][0]) / 1000);
+    const bt = btActive();
     RP = { r, rq, cum: rq.cum, hds, tim, total: rq.total, pos: 0, mult: 1, offset: 0, paused: false,
            lastT: performance.now(), elapsed: 0, dash: 0, view: '3d', curveS: 0, slopeS: 0,
-           samples: [], lastSample: 0, sceneSeed: 1 };
+           samples: [], lastSample: 0, sceneSeed: 1,
+           /* fasi: riscaldamento (2 min, pendenza 0, velocit\u00e0 a gradini) \u2192
+              percorso \u2192 defaticamento (2 min in piano, andatura blanda) */
+           phase: (bt && wu) ? 'warmup' : 'run', wuOpt: !!(bt && wu), wuDur: 120, wuT: 0, cdDur: 120, cdT: 0,
+           audio: bt, announced: -1,
+           sv: false, svImg: null, svNext: 0, kcal: 0, belowS: 0, aboveS: 0, autoPaused: false, _gj: 0, ghostDelta: 0 };
     document.getElementById('replay-overlay').classList.add('on');
-    const bt = btActive();
     document.getElementById('rp-incl-box').style.display = bt ? 'block' : 'none';
     document.getElementById('rp-gap-box').style.display = bt ? 'block' : 'none';
     document.getElementById('rp-minus').style.display = bt ? 'block' : 'none';
     document.getElementById('rp-plus').style.display = bt ? 'block' : 'none';
+    const ab = document.getElementById('rp-audio'); if (ab) { ab.style.display = bt ? 'block' : 'none'; ab.textContent = '\ud83d\udd0a'; }
+    const sb = document.getElementById('rp-stop'); if (sb) sb.style.display = bt ? 'block' : 'none';
+    const hb = document.getElementById('rp-hr-box'); if (hb) hb.style.display = (bt && hrActive()) ? 'block' : 'none';
+    if (hrActive()) { BTHR.max = 0; BTHR.sum = 0; BTHR.n = 0; }
+    const svb = document.getElementById('rp-sv'); if (svb) { svb.style.display = mapsKey() ? 'block' : 'none'; svb.style.opacity = '.55'; }
+    const vf = document.getElementById('rp-video'); if (vf) { vf.style.display = 'none'; vf.innerHTML = ''; }
+    const cv0 = document.getElementById('replay-canvas'); if (cv0) cv0.style.visibility = 'visible';
     document.getElementById('rp-chal').textContent = '';
     document.getElementById('rp-view').textContent = '2D';
-    document.getElementById('rp-x').textContent = bt ? '🏃 SFIDA' : '1×';
-    document.getElementById('rp-x').disabled = bt;
+    setRpx(bt ? (RP.phase === 'warmup' ? '\u23ed Salta' : '\ud83c\udfc3 SFIDA') : '1\u00d7', bt && RP.phase !== 'warmup');
     if (bt) { BT.lastInclSent = null; BT.lastSpdSent = null; BT.lastSendT = 0; }
+    if (RP.phase === 'warmup') rpAnnounce('Riscaldamento: due minuti a pendenza zero, velocit\u00e0 in aumento.', 2);
     const cv = document.getElementById('replay-canvas');
     cv.width = cv.clientWidth * (devicePixelRatio||1); cv.height = cv.clientHeight * (devicePixelRatio||1);
     requestAnimationFrame(rpFrame);
 }
-function rpToggleView() { if (!RP) return; RP.view = RP.view === '3d' ? '2d' : '3d'; document.getElementById('rp-view').textContent = RP.view === '3d' ? '2D' : '3D'; }
-function replaySpeed() { if (!RP || btActive()) return; RP.mult = RP.mult >= 4 ? 1 : RP.mult * 2; document.getElementById('rp-x').textContent = RP.mult + '×'; }
+
+/* ── CRONOLOGIA SFIDE sul singolo percorso (best time evidenziato) ── */
+function renderRouteChallenges(routeId) {
+    const el = document.getElementById('rd-challenges'); if (!el) return;
+    const cs = loadIndoor().filter(x => x.routeId === routeId && x.res);
+    if (!cs.length) { el.innerHTML = ''; return; }
+    const best = Math.min(...cs.map(c => c.dur));
+    el.innerHTML = '<hr class="sep"><label>Cronologia sfide su questo percorso</label>' +
+        cs.sort((a, b) => new Date(b.date) - new Date(a.date)).map(c => {
+            const gap = c.res.tTgt - c.dur;
+            return '<div class="route-item" onclick="openIndoorResult(\'' + c.id + '\')">' +
+                '<div class="top"><div class="name">' + (c.dur === best ? '\ud83c\udfc6 ' : '') + fmtTime(c.dur) +
+                ' \u00b7 ' + (gap >= 0 ? '+' : '\u2212') + Math.abs(gap) + 's vs riferimento</div>' +
+                '<span class="badge indoor">' + fmtDate(c.date) + '</span></div>' +
+                (c.dur !== best ? '<div class="meta">+' + (c.dur - best) + ' s dal tuo record</div>' : '<div class="meta">record personale</div>') +
+                '</div>';
+        }).join('');
+}
+
+/* ── EXPORT GPX DELLA SFIDA: la prestazione reale (posizioni interpolate
+   sul tracciato + tempi/velocit\u00e0 effettivi) in formato standard ── */
+/* ── SFIDA TRA AMICI: esporta un percorso il cui benchmark è la TUA
+   prestazione reale; l'amico lo importa e corre contro di te (equità inclusa,
+   perché il file porta con sé il tuo profilo fisico come "creatore") ── */
+function exportChallengeAsRoute() {
+    const s = RES_SESS; if (!s || !s.res || s.res.samples.length < 3) return;
+    const r = loadRoutes().find(x => x.id === s.routeId);
+    if (!r) return alert('Percorso originale non pi\u00f9 presente.');
+    const cum = [0];
+    for (let i = 1; i < r.pts.length; i++) cum.push(cum[i-1] + hav({lat:r.pts[i-1][1],lon:r.pts[i-1][2]},{lat:r.pts[i][1],lon:r.pts[i][2]}));
+    const sm = s.res.samples;
+    const perfAt = d => {
+        let i = 0; while (i < sm.length - 1 && sm[i+1][0] < d) i++;
+        const a = sm[i], b = sm[Math.min(i+1, sm.length-1)];
+        const f = b[0] > a[0] ? Math.min(1, Math.max(0, (d - a[0]) / (b[0] - a[0]))) : 0;
+        return { t: a[2] + (b[2]-a[2]) * f, v: (a[1] + (b[1]-a[1]) * f) / 3.6 };
+    };
+    const t0 = Date.parse(s.date) - s.dur * 1000;
+    const me = simProfile();
+    const pts = r.pts.map((p, i) => { const pf = perfAt(cum[i]);
+        return [Math.round(t0 + pf.t * 1000), p[1], p[2], p[3], +Math.max(0.3, pf.v).toFixed(2), p[5], p[6] ?? null]; });
+    const route = { id: uid(), name: 'Sfida di ' + (me.name || 'un amico') + ' \u2014 ' + r.name, mode: r.mode,
+        date: new Date().toISOString(), dur: s.dur, accAvg: r.accAvg || 10, pts,
+        st: computeStats(pts, s.dur, r.accAvg || 10, r.mode), pub: null,
+        creator: { weight: me.weight || null, height: me.height || null, fatPct: me.fatPct ?? null, leanMass: me.leanMass || null } };
+    downloadJSON(route, 'sfida_di_' + (me.name || 'amico').replace(/\W+/g, '_').toLowerCase() + '.json');
+    alert('\ud83d\udc65 File sfida creato: mandalo a un amico. Importandolo in Percorsi correr\u00e0 contro la TUA prestazione reale, con l\'equit\u00e0 calcolata sui vostri fisici.');
+}
+function exportChallengeGpx() {
+    const s = RES_SESS; if (!s || !s.res) return;
+    const r = loadRoutes().find(x => x.id === s.routeId);
+    if (!r) return alert('Percorso originale non pi\u00f9 presente: impossibile ricostruire il tracciato.');
+    const cum = [0];
+    for (let i = 1; i < r.pts.length; i++) cum.push(cum[i-1] + hav({lat:r.pts[i-1][1],lon:r.pts[i-1][2]},{lat:r.pts[i][1],lon:r.pts[i][2]}));
+    const t0 = new Date(s.date).getTime() - s.dur * 1000;
+    const posToPt = d => {
+        let i = 0; while (i < cum.length - 1 && cum[i+1] < d) i++;
+        const a = r.pts[i], b = r.pts[Math.min(i+1, r.pts.length-1)];
+        const f = cum[i+1] > cum[i] ? (d - cum[i]) / (cum[i+1] - cum[i]) : 0;
+        return { lat: a[1] + (b[1]-a[1]) * f, lon: a[2] + (b[2]-a[2]) * f,
+                 ele: (a[3] !== null && b[3] !== null) ? a[3] + (b[3]-a[3]) * f : a[3] };
+    };
+    const head = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Simmy" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+        '  <metadata><name>' + xmlEsc(s.name) + ' \u2014 sfida indoor</name><time>' + new Date(t0).toISOString() + '</time></metadata>\n' +
+        '  <trk><name>' + xmlEsc(s.name) + ' \u2014 sfida indoor</name><type>corsa</type>\n    <trkseg>\n';
+    const body = s.res.samples.map(sm => {
+        const p = posToPt(sm[0]);
+        return '      <trkpt lat="' + p.lat.toFixed(6) + '" lon="' + p.lon.toFixed(6) + '">' +
+            (p.ele !== null ? '<ele>' + (+p.ele).toFixed(1) + '</ele>' : '') +
+            '<time>' + new Date(t0 + sm[2]*1000).toISOString() + '</time></trkpt>';
+    }).join('\n');
+    const blob = new Blob([head + body + '\n    </trkseg>\n  </trk>\n</gpx>\n'], { type: 'application/gpx+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sfida_' + (s.name || 'percorso').replace(/\W+/g, '_').toLowerCase() + '.gpx';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function rpVideoAvailable() { try { return typeof videoDB === 'object' && !!videoDB; } catch (e) { return false; } }
+function rpVideoStart() {
+    const wrap = document.getElementById('rp-video'); if (!wrap || !rpVideoAvailable() || !RP) return;
+    const vAvg = avgArr(RP.rq.sVT), slopeAvg = avgArr(RP.rq.slope);
+    let key;
+    if (slopeAvg < 2) key = vAvg < 6.5 ? 'passeggiata_citta' : vAvg < 9 ? 'jogging_citta' : 'corsa_citta';
+    else if (slopeAvg < 6) key = vAvg < 7.5 ? 'passeggiata_collina' : 'corsa_collina';
+    else key = vAvg < 8 ? 'salita_montagna' : 'trail_running_montagna';
+    const ids = videoDB[key] || videoDB['corsa_citta'] || [];
+    if (!ids.length) return;
+    const id = ids[0];
+    wrap.innerHTML = '<iframe style="width:100%;height:100%;border:0" src="https://www.youtube.com/embed/' + id + '?autoplay=1&mute=1&loop=1&playlist=' + id + '&controls=0&playsinline=1&rel=0" allow="autoplay" title="scenario"></iframe>';
+    wrap.style.display = 'block';
+    const cv = document.getElementById('replay-canvas'); if (cv) cv.style.visibility = 'hidden';
+}
+function rpVideoStop() {
+    const wrap = document.getElementById('rp-video'); if (!wrap) return;
+    wrap.style.display = 'none'; wrap.innerHTML = '';
+    const cv = document.getElementById('replay-canvas'); if (cv) cv.style.visibility = 'visible';
+}
+function rpToggleView() {
+    if (!RP) return;
+    const nextOf = { '3d': '2d', '2d': rpVideoAvailable() ? 'video' : '3d', 'video': '3d' };
+    if (RP.view === 'video') rpVideoStop();
+    RP.view = nextOf[RP.view];
+    if (RP.view === 'video') rpVideoStart();
+    const lab = { '3d': '2D', '2d': rpVideoAvailable() ? '🎬 Video' : '3D', 'video': '3D' };
+    document.getElementById('rp-view').textContent = lab[RP.view];
+}
+/* SV: sfondo fotografico Street View nel 3D (richiede chiave Maps + Street View Static API) */
+function rpToggleSV() {
+    if (!RP) return;
+    if (!mapsKey()) return alert('Serve la chiave Google Maps (con Street View Static API abilitata).');
+    RP.sv = !RP.sv; RP.svNext = RP.pos; if (!RP.sv) RP.svImg = null;
+    const b = document.getElementById('rp-sv'); if (b) b.style.opacity = RP.sv ? '1' : '.55';
+    if (RP.sv && RP.view !== '3d') { rpVideoStop(); RP.view = '3d'; document.getElementById('rp-view').textContent = '2D'; }
+}
+/* STOP DI EMERGENZA: ferma il tapis e chiude la sessione */
+function rpEmergency() {
+    if (!RP) return;
+    RP.emergency = true;
+    rpAnnounce('Stop di emergenza.', 4);
+    try { btStopEmergency(); } catch (e) {}
+    endReplay(false);
+}
+function replaySpeed() {
+    if (!RP) return;
+    if (btActive()) {
+        if (RP.phase === 'warmup') rpStartRun();
+        else if (RP.phase === 'cooldown') endReplay(true);
+        return;
+    }
+    RP.mult = RP.mult >= 4 ? 1 : RP.mult * 2;
+    document.getElementById('rp-x').textContent = RP.mult + '\u00d7';
+}
 function replayPause() {
     if (!RP) return;
     RP.paused = !RP.paused; RP.lastT = performance.now();
@@ -4885,41 +5105,126 @@ function idxAt(dist) {
 function rpFrame(now) {
     if (!RP) return;
     const dt = Math.min(0.1, (now - RP.lastT) / 1000); RP.lastT = now;
+    const bt = btActive();
+    /* ── FASE RISCALDAMENTO: 2 min, pendenza 0, velocit\u00e0 a gradini verso il primo settore ── */
+    if (RP.phase === 'warmup') {
+        if (!RP.paused) RP.wuT += dt;
+        const sMinK = bt ? BT.effSpdMin / 100 : 1;
+        const first = Math.max(sMinK, RP.rq.sVT[0] + RP.offset);
+        const stepIdx = Math.min(3, Math.floor(RP.wuT / 30));
+        const target = sMinK + (first - sMinK) * (stepIdx + 1) / 4;
+        if (bt && !RP.paused) btSectorTick(0, target, 0, false);
+        drawRoad(0, 0, 1, bt ? BT.speed * 3.6 : target);
+        document.getElementById('rp-chal').textContent = 'RISCALDAMENTO \u00b7 \u2212' + fmtTime(Math.max(0, RP.wuDur - RP.wuT)) + ' \u00b7 target ' + target.toFixed(1) + ' km/h \u00b7 \u23ed per saltare';
+        document.getElementById('rp-speed').textContent = (bt ? BT.speed * 3.6 : target).toFixed(0);
+        document.getElementById('rp-slope').textContent = '0%';
+        document.getElementById('rp-time').textContent = '\u2212' + fmtTime(Math.max(0, RP.wuDur - RP.wuT));
+        if (RP.wuT >= RP.wuDur) rpStartRun();
+        requestAnimationFrame(rpFrame); return;
+    }
+    /* ── FASE DEFATICAMENTO: 2 min in piano, andatura blanda ── */
+    if (RP.phase === 'cooldown') {
+        if (!RP.paused) RP.cdT += dt;
+        const easy = Math.max(bt ? BT.effSpdMin / 100 : 1, Math.min(5, (RP.rq.sVT[0] || 5) * 0.6));
+        if (bt && !RP.paused) btSectorTick(0, easy, 0, false);
+        drawRoad(0, 0, 1, bt ? BT.speed * 3.6 : easy);
+        document.getElementById('rp-chal').textContent = 'DEFATICAMENTO \u00b7 \u2212' + fmtTime(Math.max(0, RP.cdDur - RP.cdT)) + ' \u00b7 \u23ed per terminare';
+        document.getElementById('rp-time').textContent = fmtTime(RP.elapsed);
+        if (RP.cdT >= RP.cdDur) { endReplay(true); return; }
+        requestAnimationFrame(rpFrame); return;
+    }
+    /* ── FASE PERCORSO ── */
     const i = idxAt(RP.pos);
     const p = RP.r.pts[i];
-    const bt = btActive();
     const v = bt ? Math.max(1.0/3.6, BT.speed || 0) : Math.max(0.6, p[4]);
     const mult = bt ? 1 : RP.mult;
-    if (!RP.paused) { RP.pos += v * mult * dt; RP.elapsed += dt; RP.dash += v * mult * dt; }
-    if (RP.pos >= RP.total) { endReplay(true); return; }
-    // curvatura sui prossimi ~80 m; pendenza dalla riqualificazione (levigata)
+    /* auto-pausa: nastro fermo (stop dalla console o chiave di sicurezza) →
+       la sfida si ferma da sola; riparte quando il nastro torna a girare */
+    if (bt) {
+        const beltK = (BT.speed || 0) * 3.6;
+        if (!RP.paused) {
+            RP.belowS = beltK < 1.05 ? RP.belowS + dt : 0;
+            if (RP.belowS > 5) { RP.paused = true; RP.autoPaused = true; RP.belowS = 0;
+                document.getElementById('rp-pause').textContent = '\u25b6 Riprendi';
+                rpAnnounce('Nastro fermo: sfida in pausa automatica.', 2); }
+        } else if (RP.autoPaused) {
+            RP.aboveS = beltK > 1.3 ? RP.aboveS + dt : 0;
+            if (RP.aboveS > 2) { RP.paused = false; RP.autoPaused = false; RP.aboveS = 0; RP.lastT = now;
+                document.getElementById('rp-pause').textContent = '\u23f8 Pausa';
+                rpAnnounce('Si riparte!', 2); BT.lastSendT = 0; }
+        }
+    }
+    if (!RP.paused) { RP.pos += v * mult * dt; RP.elapsed += dt; RP.dash += v * mult * dt;
+        RP.kcal += minettiC(RP.rq.slope[i] / 100) * ((simProfile().weight) || 72) * (v * mult * dt) / 4184; }
+    if (RP.pos >= RP.total) {
+        if (bt && RP.wuOpt) {
+            RP.phase = 'cooldown'; RP.pos = RP.total - 0.01;
+            setRpx('\u23ed Salta', false);
+            rpAnnounce('Percorso completato. Inizia il defaticamento.', 3);
+            requestAnimationFrame(rpFrame); return;
+        }
+        endReplay(true); return;
+    }
     let curve = 0, ncv = 0, j = i;
     while (j < RP.r.pts.length - 1 && RP.cum[j] < RP.pos + 80) { curve += angDiff(RP.hds[j], RP.hds[j+1]); ncv++; j++; }
     curve = ncv ? curve / ncv : 0;
     const slope = RP.rq.slope[i] / 100;
-    // smorzamento per una camera fluida
     RP.curveS += (curve - RP.curveS) * Math.min(1, dt * 4);
     RP.slopeS += (slope - RP.slopeS) * Math.min(1, dt * 3);
+    /* pacer fantasma: dov'è il benchmark al mio stesso tempo trascorso */
+    if (bt) {
+        let gj = RP._gj; const tm = RP.tim;
+        while (gj < tm.length - 1 && tm[gj + 1] <= RP.elapsed) gj++;
+        while (gj > 0 && tm[gj] > RP.elapsed) gj--;
+        RP._gj = gj;
+        const t0g = tm[gj], t1g = tm[Math.min(gj + 1, tm.length - 1)];
+        const fg = t1g > t0g ? Math.min(1, Math.max(0, (RP.elapsed - t0g) / (t1g - t0g))) : 0;
+        RP.ghostDelta = RP.cum[gj] + (RP.cum[Math.min(gj + 1, RP.cum.length - 1)] - RP.cum[gj]) * fg - RP.pos;
+    }
+    /* sfondo Street View: nuova foto ogni ~30 m nella direzione di marcia */
+    if (RP.sv && RP.pos >= RP.svNext && mapsKey()) {
+        RP.svNext = RP.pos + 30;
+        const hdDeg = ((RP.hds[i] * 180 / Math.PI) + 360) % 360;
+        const img = new Image();
+        img.onload = () => { if (RP) RP.svImg = img; };
+        img.src = 'https://maps.googleapis.com/maps/api/streetview?size=640x360&location=' + p[1] + ',' + p[2] + '&heading=' + hdDeg.toFixed(0) + '&fov=95&pitch=0&key=' + encodeURIComponent(mapsKey());
+    }
     if (bt && !RP.paused) {
-        // comandi per SETTORE: valori medi, cambiano solo al confine del settore
         const det = btSectorTick(RP.rq.sIncl[i], RP.rq.sVT[i], RP.offset, false);
         if (det) document.getElementById('rp-chal').textContent =
-            'settore ~' + RP.rq.sectS + 's · target ' + det.target.toFixed(1) + ' km/h' +
-            (Math.abs(RP.rq.sComp[i]-1) > 0.005 ? ' × comp ' + RP.rq.sComp[i].toFixed(2) : '') +
-            (Math.abs(RP.rq.sEq[i]-1) > 0.005 ? ' × equità ' + RP.rq.sEq[i].toFixed(2) : '') +
+            'settore ~' + RP.rq.sectS + 's \u00b7 target ' + det.target.toFixed(1) + ' km/h' +
+            (Math.abs(RP.rq.sComp[i]-1) > 0.005 ? ' \u00d7 comp ' + RP.rq.sComp[i].toFixed(2) : '') +
+            (Math.abs(RP.rq.sEq[i]-1) > 0.005 ? ' \u00d7 equit\u00e0 ' + RP.rq.sEq[i].toFixed(2) : '') +
             (RP.offset ? (RP.offset > 0 ? ' +' : ' ') + RP.offset.toFixed(1) : '') +
-            ' · pendenza bloccata ' + det.incl.toFixed(1) + '%';
+            ' \u00b7 pendenza bloccata ' + det.incl.toFixed(1) + '%';
         const gap = (RP.tim[i] || 0) - RP.elapsed;
         const g = document.getElementById('rp-gap');
-        g.textContent = (gap >= 0 ? '+' : '−') + Math.abs(gap).toFixed(0) + 's';
+        g.textContent = (gap >= 0 ? '+' : '\u2212') + Math.abs(gap).toFixed(0) + 's';
         g.style.color = gap >= 0 ? 'var(--tel)' : 'var(--danger)';
-        // campiona la prestazione reale ogni ~2 s per il confronto finale
         if (RP.elapsed - RP.lastSample > 2) {
             RP.lastSample = RP.elapsed;
-            RP.samples.push([+(RP.pos).toFixed(0), +(v*3.6).toFixed(1), Math.round(RP.elapsed), BT.machineIncl]);
+            RP.samples.push([+(RP.pos).toFixed(0), +(v*3.6).toFixed(1), Math.round(RP.elapsed), BT.machineIncl, hrActive() ? BTHR.bpm : null]);
+        }
+        /* annuncio audio 5 s prima del confine di settore */
+        if (RP.audio) {
+            let b = i; const sI = RP.rq.sIncl, sV = RP.rq.sVT;
+            while (b < sI.length - 1 && sI[b+1] === sI[i] && sV[b+1] === sV[i]) b++;
+            b++;
+            if (b < sI.length && RP.announced !== b) {
+                const tTo = (RP.cum[b] - RP.pos) / Math.max(0.5, v);
+                if (tTo <= 5 && tTo > 0) {
+                    RP.announced = b;
+                    const dIncl = sI[b] - sI[i], dV = sV[b] - sV[i];
+                    let msg = 'Tra poco: ';
+                    msg += dIncl > 0.4 ? 'salita al ' + sI[b].toFixed(0) + ' per cento' : dIncl < -0.4 ? 'pendenza gi\u00f9 al ' + sI[b].toFixed(0) + ' per cento' : 'pendenza invariata';
+                    msg += dV > 0.2 ? ', si accelera a ' + (sV[b] + RP.offset).toFixed(1) : dV < -0.2 ? ', si rallenta a ' + (sV[b] + RP.offset).toFixed(1) : '';
+                    rpAnnounce(msg, 2);
+                }
+            }
         }
     }
-    if (RP.view === '3d') drawRoad(RP.curveS, RP.slopeS, p[5], v * 3.6);
+    if (RP.view === 'video') { /* scenario video: resta solo l'HUD */ }
+    else if (RP.view === '3d') drawRoad(RP.curveS, RP.slopeS, p[5], v * 3.6);
     else drawReplay2D(i, v * 3.6);
     document.getElementById('rp-speed').textContent = (v * 3.6).toFixed(0);
     document.getElementById('rp-slope').textContent = (RP.rq.slope[i]).toFixed(0) + '%';
@@ -4944,24 +5249,34 @@ function drawRoad(curve, slope, rough, kmh) {
     ctx.save();
     // banking leggero in curva
     ctx.translate(W/2, H/2); ctx.rotate(-curve * 0.9); ctx.translate(-W/2, -H/2);
+    // sfondo: foto Street View se attiva e caricata, altrimenti cielo procedurale
+    const svOn = RP && RP.sv && RP.svImg && RP.svImg.complete && RP.svImg.naturalWidth > 0;
+    if (svOn) {
+        try {
+            ctx.drawImage(RP.svImg, -W * 0.06 + sx * 0.3, -H * 0.03, W * 1.12, Math.max(60, horizon + H * 0.10));
+            ctx.fillStyle = 'rgba(8,12,18,.20)';
+            ctx.fillRect(-W * 0.06, -H * 0.03, W * 1.12, Math.max(60, horizon + H * 0.10));
+        } catch (e) {}
+    } else {
     // cielo con sole
-    const sky = ctx.createLinearGradient(0, 0, 0, horizon);
-    sky.addColorStop(0, '#0b1322'); sky.addColorStop(0.7, '#25364e'); sky.addColorStop(1, '#3b4d63');
-    ctx.fillStyle = sky; ctx.fillRect(-W*0.2, -H*0.2, W*1.4, Math.max(0, horizon)+H*0.2);
-    const sunX = W*0.72 - curve*W*0.5, sunY = horizon*0.45;
-    const sun = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, H*0.12);
-    sun.addColorStop(0, 'rgba(255,230,170,.95)'); sun.addColorStop(1, 'rgba(255,230,170,0)');
-    ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sunX, sunY, H*0.12, 0, 7); ctx.fill();
-    // montagne in parallasse (due layer, scorrono con la curvatura accumulata)
-    const par = RP ? RP.dash : 0;
-    [[0.10, '#16202e', 90], [0.22, '#101821', 55]].forEach(([amp, col, hgt], li) => {
-        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-W*0.2, horizon);
-        for (let x = -W*0.2; x <= W*1.2; x += W/24) {
-            const ph = x/W*6 + par*0.0009*(li+1) + curve*3;
-            ctx.lineTo(x, horizon - (Math.sin(ph)*0.5+0.5) * H*amp - 4);
-        }
-        ctx.lineTo(W*1.2, horizon); ctx.closePath(); ctx.fill();
-    });
+        const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+        sky.addColorStop(0, '#0b1322'); sky.addColorStop(0.7, '#25364e'); sky.addColorStop(1, '#3b4d63');
+        ctx.fillStyle = sky; ctx.fillRect(-W*0.2, -H*0.2, W*1.4, Math.max(0, horizon)+H*0.2);
+        const sunX = W*0.72 - curve*W*0.5, sunY = horizon*0.45;
+        const sun = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, H*0.12);
+        sun.addColorStop(0, 'rgba(255,230,170,.95)'); sun.addColorStop(1, 'rgba(255,230,170,0)');
+        ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sunX, sunY, H*0.12, 0, 7); ctx.fill();
+        // montagne in parallasse (due layer, scorrono con la curvatura accumulata)
+        const par = RP ? RP.dash : 0;
+        [[0.10, '#16202e', 90], [0.22, '#101821', 55]].forEach(([amp, col, hgt], li) => {
+            ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-W*0.2, horizon);
+            for (let x = -W*0.2; x <= W*1.2; x += W/24) {
+                const ph = x/W*6 + par*0.0009*(li+1) + curve*3;
+                ctx.lineTo(x, horizon - (Math.sin(ph)*0.5+0.5) * H*amp - 4);
+            }
+            ctx.lineTo(W*1.2, horizon); ctx.closePath(); ctx.fill();
+        });
+    }
     // terreno (colore dal tipo di superficie)
     const sc = surfaceClass(rough);
     const gnd = ctx.createLinearGradient(0, horizon, 0, H);
@@ -5029,6 +5344,40 @@ function drawRoad(curve, slope, rough, kmh) {
             }
         }
     }
+    /* ── PACER FANTASMA: il benchmark corre sulla strada davanti (o dietro) a te ── */
+    if (RP && RP.phase === 'run' && btActive()) {
+        const gd = RP.ghostDelta || 0;
+        if (gd > 2 && gd < 330) {
+            const rel = gd / 330, pfar = 1 - rel;
+            const gy = H - (H - horizon) * rel + sy;
+            const gx = W / 2 + bend * rel * rel * (W / 900) + sx;
+            const hgt = Math.max(9, 66 * pfar);
+            const swing = Math.sin((RP.dash || 0) * 0.6) * hgt * 0.12;   // gambe animate
+            ctx.globalAlpha = 0.8;
+            ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = Math.max(2, 5 * pfar); ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.58); ctx.lineTo(gx, gy - hgt * 0.18); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.18); ctx.lineTo(gx - hgt * 0.16 - swing, gy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.18); ctx.lineTo(gx + hgt * 0.16 - swing, gy - Math.abs(swing) * 0.4); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.50); ctx.lineTo(gx + hgt * 0.14 + swing * 0.6, gy - hgt * 0.34); ctx.stroke();
+            ctx.fillStyle = '#ffc93c'; ctx.beginPath(); ctx.arc(gx, gy - hgt * 0.70, Math.max(2.5, hgt * 0.13), 0, 7); ctx.fill();
+            ctx.globalAlpha = 1;
+            if (pfar > 0.3) {
+                ctx.fillStyle = 'rgba(255,201,60,.95)';
+                ctx.font = 'bold ' + Math.round(11 * Math.max(0.7, pfar) * (devicePixelRatio || 1)) + 'px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('BENCH +' + gd.toFixed(0) + 'm', gx, gy - hgt - 6);
+                ctx.textAlign = 'left';
+            }
+        } else if (gd <= 2) {
+            ctx.fillStyle = 'rgba(90,220,160,.95)';
+            ctx.font = 'bold ' + Math.round(12 * (devicePixelRatio || 1)) + 'px monospace';
+            ctx.fillText('\ud83d\udc7b benchmark ' + Math.abs(gd).toFixed(0) + ' m dietro di te', 14, H - 14);
+        } else {
+            ctx.fillStyle = 'rgba(255,107,94,.95)';
+            ctx.font = 'bold ' + Math.round(12 * (devicePixelRatio || 1)) + 'px monospace';
+            ctx.fillText('\ud83d\udc7b benchmark a +' + gd.toFixed(0) + ' m, fuori vista', 14, H - 14);
+        }
+    }
     ctx.restore();
     const vg = ctx.createRadialGradient(W/2, H*0.55, H*0.3, W/2, H*0.55, H*0.95);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
@@ -5086,13 +5435,27 @@ function drawReplay2D(i, kmhNow) {
     ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(cx, py0-4); ctx.lineTo(cx, vy1+4); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = '#ffc93c'; ctx.beginPath(); ctx.arc(cx, SY(rq.slope[i]), 5*(devicePixelRatio||1), 0, 7); ctx.fill();
     ctx.fillStyle = '#5adca0'; ctx.beginPath(); ctx.arc(cx, VY(rq.vT[i]), 5*(devicePixelRatio||1), 0, 7); ctx.fill();
+    /* pacer fantasma anche in 2D: linea tratteggiata arancione dove si trova il benchmark */
+    if (btActive() && RP.phase === 'run') {
+        const gpos = Math.max(0, Math.min(total, RP.pos + (RP.ghostDelta || 0)));
+        const gx2 = X(gpos);
+        ctx.strokeStyle = 'rgba(255,201,60,.95)'; ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(gx2, py0 - 4); ctx.lineTo(gx2, vy1 + 4); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#ffc93c';
+        ctx.font = 'bold ' + Math.round(11 * (devicePixelRatio || 1)) + 'px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('\ud83d\udc7b ' + (RP.ghostDelta >= 0 ? '+' : '\u2212') + Math.abs(RP.ghostDelta).toFixed(0) + 'm', gx2, py0 - 10);
+        ctx.textAlign = 'left';
+    }
 }
 
 function endReplay(completed) {
     if (!RP) return;
     const r = RP.r, km = RP.pos / 1000, dur = Math.round(RP.elapsed);
     const bt = btActive();
-    if (bt) { BT.lastInclSent = null; BT.lastSpdSent = null; btSetIncline(0); btSetSpeed(1.0); }
+    const emg = !!RP.emergency;
+    if (bt && !emg) { BT.lastInclSent = null; BT.lastSpdSent = null; btSetIncline(0); btSetSpeed(1.0); }   // salvo emergenza: il tapis resta fermo
+    try { rpVideoStop(); } catch (e) {}
     document.getElementById('replay-overlay').classList.remove('on');
     let sess = null;
     if (dur > 30 && km > 0.1) {
@@ -5101,6 +5464,7 @@ function endReplay(completed) {
         if (bt && RP.samples.length > 2) {
             sess.res = { samples: RP.samples,
                 tTgt: Math.round(RP.rq.tTgt * Math.min(1, RP.pos / RP.total)), nSect: RP.rq.nSect,
+                kcal: Math.round(RP.kcal >= 1 ? RP.kcal : (RP.samples.length > 2 ? minettiC((avgArr(RP.samples.map(x => x[3] || 0)) / 100)) * ((simProfile().weight) || 72) * RP.pos / 4184 : 0)), hrAvg: (hrActive() && BTHR.n) ? Math.round(BTHR.sum / BTHR.n) : null, hrMax: (hrActive() && BTHR.max) ? BTHR.max : null,
                 eqAvg: +RP.rq.eqAvg.toFixed(2), clampedPct: RP.rq.clampedPct,
                 tgt: RP.rq.cum.filter((_, k) => k % Math.ceil(RP.rq.cum.length/300) === 0).map((d, k2) => {
                     const k = k2 * Math.ceil(RP.rq.cum.length/300);
@@ -5108,6 +5472,17 @@ function endReplay(completed) {
                 }) };
         }
         sessions.unshift(sess); saveIndoor(sessions);
+        /* storico unificato (Tappy): la sfida entra anche nello Storico classico */
+        try {
+            if (bt && sess.res && typeof loadHistory === 'function' && typeof saveHistoryData === 'function') {
+                const hh = loadHistory();
+                hh.push({ id: sess.id + '-c', dateISO: sess.date, program: '\ud83c\udfae Sfida \u2014 ' + r.name,
+                          durationSec: dur, km: +km.toFixed(2), kcal: Math.round(RP.kcal >= 1 ? RP.kcal : (RP.samples.length > 2 ? minettiC((avgArr(RP.samples.map(x => x[3] || 0)) / 100)) * ((simProfile().weight) || 72) * RP.pos / 4184 : 0)),
+                          avgSpeed: dur ? +(km / (dur / 3600)).toFixed(1) : 0, complete: !!completed });
+                saveHistoryData(hh);
+                if (typeof renderHistoryViews === 'function') renderHistoryViews();
+            }
+        } catch (e) {}
         simRenderAll();
     }
     const wasBt = bt && sess && sess.res;
@@ -5130,7 +5505,16 @@ function showChallengeResult(sess) {
         [vReal.toFixed(1), 'tua vel media'], [vTgt.toFixed(1), 'vel target media'], [sess.km.toFixed(1), 'km percorsi'],
         ['×' + (res.eqAvg || 1).toFixed(2), 'fattore equità'], [(res.clampedPct || 0) + '%', 'pendenza ritagliata'], [(res.nSect || '—') + '', 'settori']
     ];
+    if (res.kcal) kpi.push([res.kcal + '', 'kcal (Minetti)']);
+    if (res.hrAvg) kpi.push([res.hrAvg + '', 'FC media bpm'], [(res.hrMax || res.hrAvg) + '', 'FC max bpm']);
     document.getElementById('res-kpi').innerHTML = kpi.map(k => `<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+    // record personale sul percorso
+    const others = loadIndoor().filter(x => x.routeId === sess.routeId && x.res && x.id !== sess.id);
+    const bestOther = others.length ? Math.min(...others.map(o => o.dur)) : null;
+    const recEl = document.getElementById('res-record');
+    if (recEl) recEl.textContent = (bestOther === null || sess.dur < bestOther)
+        ? '\ud83c\udfc6 Nuovo miglior tempo su questo percorso!'
+        : 'Miglior tempo personale: ' + fmtTime(bestOther) + ' (' + (sess.dur - bestOther) + ' s da recuperare)';
     document.getElementById('res-ai').innerHTML = ''; document.getElementById('res-ai-status').textContent = '';
     document.getElementById('result-overlay').style.display = 'block';
     requestAnimationFrame(() => {
@@ -5307,6 +5691,7 @@ function btOnControlResponse(e) {
     const v = e.target.value;
     if (v.byteLength < 3 || v.getUint8(0) !== 0x80) return;
     const op = v.getUint8(1), res = v.getUint8(2);
+    btLog('RISPOSTA', 'op=0x0' + op.toString(16) + ' → ' + (RES_NAME[res] || res));
     if (BT && BT.pending && BT.pending.op === op) { const p = BT.pending; BT.pending = null; clearTimeout(p.to); p.resolve(res); }
     if (res !== 0x01) btStatus('⚠️ Tapis: comando 0x0' + op.toString(16) + ' → ' + (RES_NAME[res] || 'errore ' + res) + '.');
 }
@@ -5347,6 +5732,7 @@ function btDisconnect() {
 
 /* Scritture grezze (già clampate a monte) */
 async function btRawIncl(d) {   // d in decimi di %
+    btLog('CMD', 'inclinazione ' + (d/10).toFixed(1) + '%');
     if (BT.virtual) { BT.sim.it = d / 10; BT.lastInclSent = d; BT.lastSendT = Date.now(); return 1; }
     const buf = new Uint8Array(3); buf[0] = 0x03; new DataView(buf.buffer).setInt16(1, d, true);
     let r = await btCommand(buf);
@@ -5355,6 +5741,7 @@ async function btRawIncl(d) {   // d in decimi di %
     return r;
 }
 async function btRawSpeed(c) {  // c in 0.01 km/h
+    btLog('CMD', 'velocità ' + (c/100).toFixed(2) + ' km/h');
     if (BT.virtual) { BT.sim.vt = c / 100; BT.lastSpdSent = c; return 1; }
     const buf = new Uint8Array(3); buf[0] = 0x02; new DataView(buf.buffer).setUint16(1, c, true);
     let r = await btCommand(buf);
@@ -5415,6 +5802,76 @@ function btChallengeTick(slopeRoute, vBench, offsetKmh, route, force) {
         }
     }
     return { target, comp, eq, iMachinePct };
+}
+
+
+/* ── LOG DIAGNOSTICO FTMS: ogni comando e risposta, scaricabile ── */
+let BTLOG = [];
+function btLog(kind, detail) {
+    BTLOG.push(new Date().toISOString().slice(11, 23) + ' ' + kind + ' ' + detail);
+    if (BTLOG.length > 600) BTLOG.shift();
+}
+function btDownloadLog() {
+    if (!BTLOG.length) return alert('Nessun evento registrato: connetti il tapis e prova qualche comando.');
+    const m = machineProf();
+    const head = 'Simmy/Tappy — log diagnostico FTMS\nModello: ' + (m.model || 'n/d') + '\nGenerato: ' + new Date().toISOString() + '\n' +
+        (BT ? 'Range letti: incl ' + BT.range.min + '..' + BT.range.max + ' (passo ' + BT.range.inc + ') · vel ' + BT.spdRange.min + '..' + BT.spdRange.max + ' (passo ' + BT.spdRange.inc + ')\n' : '') + '─'.repeat(50) + '\n';
+    const blob = new Blob([head + BTLOG.join('\n')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'ftms_log_' + Date.now() + '.txt';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ── STOP DI EMERGENZA: Stop FTMS (0x08) + pendenza 0. Nessuna attesa
+   di risposta ordinata: prima si ferma, poi si ragiona. ── */
+async function btStopEmergency() {
+    if (!BT) return;
+    btLog('EMERGENZA', 'stop richiesto dall\'utente');
+    try {
+        if (BT.virtual) { BT.sim.vt = 0; BT.sim.it = 0; }
+        else if (BT.ctrl) {
+            try { await btCommand(new Uint8Array([0x08, 0x01])); } catch (e) {}   // Stop
+            try { await btCommand(new Uint8Array([0x08])); } catch (e) {}          // variante senza parametro
+            const buf = new Uint8Array(3); buf[0] = 0x03; new DataView(buf.buffer).setInt16(1, 0, true);
+            try { await btCommand(buf); } catch (e) {}
+        }
+    } catch (e) {}
+    BT.lastInclSent = 0; BT.lastSpdSent = 0;
+}
+
+/* ── FASCIA CARDIO Bluetooth (Heart Rate Service 0x180D) ── */
+let BTHR = null;
+async function hrConnect() {
+    if (!navigator.bluetooth) return alert('Web Bluetooth non disponibile su questo browser.');
+    try {
+        const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [0x180d] }], optionalServices: [0x180d] });
+        dev.addEventListener('gattserverdisconnected', () => { if (BTHR) BTHR.ok = false; hrStatus('Fascia disconnessa.'); });
+        const srv = await (await dev.gatt.connect()).getPrimaryService(0x180d);
+        const ch = await srv.getCharacteristic(0x2a37);
+        await ch.startNotifications();
+        BTHR = { dev, bpm: 0, ok: true, max: 0, sum: 0, n: 0 };
+        ch.addEventListener('characteristicvaluechanged', e => {
+            const v = e.target.value;
+            const bpm = (v.getUint8(0) & 0x01) ? v.getUint16(1, true) : v.getUint8(1);
+            if (bpm > 25 && bpm < 240) {
+                BTHR.bpm = bpm; BTHR.max = Math.max(BTHR.max, bpm); BTHR.sum += bpm; BTHR.n++;
+                const el = document.getElementById('hr-live'); if (el) el.textContent = bpm;
+                const h = document.getElementById('rp-hr'); if (h) { h.textContent = bpm; h.style.color = hrZoneColor(bpm); }
+            }
+        });
+        hrStatus('✅ Fascia "' + (dev.name || 'cardio') + '" connessa.');
+    } catch (e) { hrStatus(/cancel/i.test(String(e.message)) ? 'Ricerca annullata.' : '⚠️ ' + e.message); }
+}
+function hrDisconnect() { try { if (BTHR && BTHR.dev && BTHR.dev.gatt.connected) BTHR.dev.gatt.disconnect(); } catch (e) {} if (BTHR) BTHR.ok = false; hrStatus('Disconnessa.'); }
+function hrStatus(m) { const el = document.getElementById('hr-status'); if (el) el.textContent = m; }
+const hrActive = () => !!(BTHR && BTHR.ok);
+function hrMax() { const m = machineProf(); return +m.hrMax || 190; }
+function hrZone(bpm) { const p = bpm / hrMax(); return p < 0.6 ? 1 : p < 0.7 ? 2 : p < 0.8 ? 3 : p < 0.9 ? 4 : 5; }
+function hrZoneColor(bpm) { return ['', '#8fd07a', '#5adca0', '#ffc93c', '#ffa53c', '#ff6b5e'][hrZone(bpm)]; }
+function saveHrMax() {
+    const v = parseFloat(document.getElementById('hr-max').value);
+    const m = machineProf(); m.hrMax = isNaN(v) ? null : v; saveJ(K.machine, m);
+    hrStatus('FC max salvata: ' + (m.hrMax || 190) + ' bpm (zone Z1–Z5 ricalcolate).');
 }
 
 /* ── PROFILO MODELLO TAPIS (manuale o compilato dall'AI) ────────── */
