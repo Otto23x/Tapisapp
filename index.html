@@ -3803,7 +3803,7 @@ REGOLE:
 .simx .route-item .meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; font-family: ui-monospace, monospace; }
 .simx .badge { font-size: 10px; border-radius: 8px; padding: 2px 7px; font-weight: 700; }
 .simx .badge.indoor { background: rgba(56,189,248,.12); color: var(--accent-blue); border: 1px solid rgba(56,189,248,.4); }
-.simx canvas.chart { width: 100%; border-radius: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); }
+.simx canvas.chart { width: 100%; max-height: 240px; border-radius: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); }
 .simx .ai-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; margin-top: 8px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; color: var(--text-main); }
 .simx .rec-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ef4444; margin-right: 5px; animation: simpulse 1s infinite; }
 @keyframes simpulse { 50% { opacity: .35; } }
@@ -3992,7 +3992,20 @@ REGOLE:
             <button class="ghost small" data-s="30" onclick="preflySect(30)">Standard · 30 s</button>
             <button class="ghost small" data-s="60" onclick="preflySect(60)">Morbido · 60 s</button>
         </div>
-        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;cursor:pointer"><input type="checkbox" id="pf-wu" checked style="width:auto;margin:0"> Riscaldamento e defaticamento automatici (2 min ciascuno)</label>
+
+        <label>Riscaldamento prima del percorso</label>
+        <div class="btn-row" id="pf-wu-min">
+            <button class="ghost small" data-m="0" onclick="preflyWuMin(0)">No</button>
+            <button class="ghost small" data-m="1" onclick="preflyWuMin(1)">1 min</button>
+            <button class="ghost small" data-m="3" onclick="preflyWuMin(3)">3 min</button>
+            <button class="ghost small" data-m="5" onclick="preflyWuMin(5)">5 min</button>
+            <button class="ghost small" data-m="10" onclick="preflyWuMin(10)">10 min</button>
+        </div>
+        <div class="btn-row" id="pf-wu-spd" style="margin-top:6px">
+            <button class="ghost small" data-k="5" onclick="preflyWuSpd(5)">5 km/h</button>
+            <button class="ghost small" data-k="7" onclick="preflyWuSpd(7)">7 km/h</button>
+            <button class="ghost small" data-k="9" onclick="preflyWuSpd(9)">9 km/h</button>
+        </div>
 
         <div style="height:10px"></div>
         <div class="btn-row">
@@ -4492,15 +4505,20 @@ async function refineElevation(id, silent) {
    ═══════════════════════════════════════════════════════════════ */
 function fitCanvas(cv) {
     const r = cv.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const hAttr = parseInt(cv.getAttribute('height')) || 120;
+    // ALTEZZA CSS BLOCCATA: il canvas con solo width:100% viene altrimenti
+    // scalato in proporzione dal browser e i grafici esplodono a schermo
+    // intero quando l'attributo width è piccolo. Così restano compatti.
+    if (cv.style.height !== hAttr + 'px') cv.style.height = hAttr + 'px';
     // vista nascosta o layout non pronto: NON ridimensionare (era la causa
     // della mappa bianca e della pagina che si allungava coprendo i pulsanti)
-    if (r.width < 10) { return { ctx: cv.getContext('2d'), w: cv.width / dpr || 300, h: parseInt(cv.getAttribute('height')) || 120, skip: true }; }
+    if (r.width < 10) { return { ctx: cv.getContext('2d'), w: cv.width / dpr || 300, h: hAttr, skip: true }; }
     cv.width = Math.max(50, r.width * dpr);
-    cv.height = (parseInt(cv.getAttribute('height')) || 120) * dpr;
+    cv.height = hAttr * dpr;
     const ctx = cv.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { ctx, w: r.width, h: parseInt(cv.getAttribute('height')) || 120 };
+    return { ctx, w: r.width, h: hAttr };
 }
 
 /* Pianta del tracciato, colorata con l'indice asfalto */
@@ -4814,7 +4832,7 @@ function rpToggleAudio() { if (!RP) return; RP.audio = !RP.audio;
     if (!RP.audio) try { speechSynthesis.cancel(); } catch (e) {} }
 function setRpx(label, disabled) { const b = document.getElementById('rp-x'); if (b) { b.textContent = label; b.disabled = !!disabled; } }
 function rpStartRun() { if (!RP) return; RP.phase = 'run'; RP.lastT = performance.now();
-    setRpx('🏃 SFIDA', true); if (btActive()) BT.lastSendT = 0;
+    setRpx(btActive() ? '🏃 SFIDA' : '1×', btActive()); if (btActive()) BT.lastSendT = 0;
     rpAnnounce('Riscaldamento completato. Si parte!', 3); }
 
 function requalifyRoute(r, sectS) {
@@ -4895,35 +4913,44 @@ function drawTwoLines(cv, x, y1, y2, c1, c2, unit) {
 }
 function startReplay(id) {
     const r = loadRoutes().find(x => x.id === id); if (!r) return;
-    if (btActive()) {
-        PREFLY = { r, sectS: 30, rq: requalifyRoute(r, 30) };
-        document.getElementById('prefly-overlay').style.display = 'block';
-        preflyRender();
-        if (getAiKey()) {
-            const rq = PREFLY.rq;
-            geminiCallSimple('In UNA sola frase italiana (max 30 parole) spiega a un utente questo adattamento del suo percorso al tapis: ' + rq.clampedPct + '% del percorso fuori range pendenza ' + rq.iMin + '\u2013' + rq.iMax + '%, compensazione di velocit\u00e0 a pari sforzo, fattore equit\u00e0 ' + rq.eqAvg.toFixed(2) + ', comandi mediati per settori di ' + rq.sectS + ' secondi.')
-                .then(t => { const el = document.getElementById('pf-ai'); if (el && PREFLY) el.textContent = '\ud83e\udd16 ' + t.trim(); }).catch(() => {});
-        }
-        return;
+    /* La pre-partenza appare SEMPRE: con il tapis usa i suoi limiti reali,
+       senza usa i limiti standard (0\u201315%, 1\u201320 km/h) \u2014 cos\u00ec compensazioni,
+       settori e riscaldamento sono visibili e regolabili in ogni caso. */
+    PREFLY = { r, sectS: 30, wuMin: 3, wuSpd: 7, rq: requalifyRoute(r, 30) };
+    document.getElementById('prefly-overlay').style.display = 'block';
+    preflyRender();
+    if (getAiKey() && btActive()) {
+        const rq = PREFLY.rq;
+        geminiCallSimple('In UNA sola frase italiana (max 30 parole) spiega a un utente questo adattamento del suo percorso al tapis: ' + rq.clampedPct + '% del percorso fuori range pendenza ' + rq.iMin + '\u2013' + rq.iMax + '%, compensazione di velocit\u00e0 a pari sforzo, fattore equit\u00e0 ' + rq.eqAvg.toFixed(2) + ', comandi mediati per settori di ' + rq.sectS + ' secondi.')
+            .then(t => { const el = document.getElementById('pf-ai'); if (el && PREFLY) el.textContent = '\ud83e\udd16 ' + t.trim(); }).catch(() => {});
     }
-    beginReplay(r, requalifyRoute(r, 30), false);
 }
+function preflyWuMin(m) { if (!PREFLY) return; PREFLY.wuMin = m; preflyRender(); }
+function preflyWuSpd(k) { if (!PREFLY) return; PREFLY.wuSpd = k; preflyRender(); }
 /* selettore durata settori: 10 s (fine) / 30 s / 60 s */
 function preflySect(s) { if (!PREFLY) return; PREFLY.sectS = s; PREFLY.rq = requalifyRoute(PREFLY.r, s); preflyRender(); }
 function preflyRender() {
-    const rq = PREFLY.rq, m = machineProf();
+    const rq = PREFLY.rq, m = machineProf(), bt = btActive();
     document.querySelectorAll('#pf-sect button').forEach(b => {
         const on = +b.dataset.s === PREFLY.sectS;
-        b.style.borderColor = on ? '#ffc93c' : '';
-        b.style.color = on ? '#ffc93c' : '';
+        b.style.borderColor = on ? '#ffc93c' : ''; b.style.color = on ? '#ffc93c' : '';
+    });
+    document.querySelectorAll('#pf-wu-min button').forEach(b => {
+        const on = +b.dataset.m === PREFLY.wuMin;
+        b.style.borderColor = on ? '#5adca0' : ''; b.style.color = on ? '#5adca0' : '';
+    });
+    document.querySelectorAll('#pf-wu-spd button').forEach(b => {
+        const on = +b.dataset.k === PREFLY.wuSpd;
+        b.style.borderColor = on ? '#5adca0' : ''; b.style.color = on ? '#5adca0' : '';
+        b.disabled = PREFLY.wuMin === 0; b.style.opacity = PREFLY.wuMin === 0 ? '.4' : '1';
     });
     document.getElementById('pf-summary').innerHTML =
-        'Tapis: <b>' + (m.model || (BT.virtual ? 'virtuale' : 'connesso')) + '</b> \u2014 pendenza ' + rq.iMin.toFixed(1) + '\u00f7' + rq.iMax.toFixed(1) + '%, velocit\u00e0 ' +
-        (BT.effSpdMin/100).toFixed(1) + '\u00f7' + (BT.effSpdMax/100).toFixed(1) + ' km/h.<br>' +
-        '<b>' + rq.clampedPct + '%</b> del percorso ha pendenze fuori dal range del tapis: l\u00ec la pendenza \u00e8 stata ritagliata e la <b>velocit\u00e0 target compensata</b> a pari sforzo (Minetti) \u2014 in salita e in discesa.<br>' +
+        (bt ? 'Strumento: <b>' + (m.model || (BT.virtual ? 'tapis virtuale' : 'tapis connesso')) + '</b> \u2014 pendenza ' + rq.iMin.toFixed(1) + '\u00f7' + rq.iMax.toFixed(1) + '% (mai negativa: le discese sono compensate in velocit\u00e0), velocit\u00e0 ' + (BT.effSpdMin/100).toFixed(1) + '\u00f7' + (BT.effSpdMax/100).toFixed(1) + ' km/h.'
+            : 'Strumento: <b>nessuno connesso</b> \u2014 simulazione a schermo con limiti standard (pendenza 0\u00f715%, velocit\u00e0 1\u00f720 km/h). Collega il tapis dalla scheda Corri per la sfida reale con i limiti della TUA macchina.') + '<br>' +
+        '<b>' + rq.clampedPct + '%</b> del percorso ha pendenze fuori range: l\u00ec la pendenza \u00e8 ritagliata e la <b>velocit\u00e0 target compensata a pari sforzo</b> (Minetti) \u2014 salite pi\u00f9 veloci del benchmark, discese pi\u00f9 lente.<br>' +
         'Fattore di equit\u00e0 medio vs creatore: <b>\u00d7' + rq.eqAvg.toFixed(2) + '</b>' +
         (Math.abs(rq.eqAvg-1) < 0.005 ? ' (stesso fisico o dati mancanti)' : rq.eqAvg < 1 ? ' (fisico pi\u00f9 pesante: target ridotto)' : ' (fisico pi\u00f9 leggero: target aumentato)') + '.<br>' +
-        'Tempo benchmark <b>' + fmtTime(rq.tB) + '</b> \u2192 riferimento adattato <b>' + fmtTime(rq.tTgt) + '</b> \u00b7 <b>' + rq.nSect + ' settori</b> da ~' + rq.sectS + ' s: i comandi cambiano solo al confine del settore.';
+        'Tempo benchmark <b>' + fmtTime(rq.tB) + '</b> \u2192 riferimento adattato <b>' + fmtTime(rq.tTgt) + '</b> \u00b7 <b>' + rq.nSect + ' settori</b> da ~' + rq.sectS + ' s: pendenza e velocit\u00e0 sono le medie del settore e cambiano SOLO al suo confine.';
     requestAnimationFrame(() => {
         drawTwoLines(document.getElementById('pf-slope'), rq.cum, rq.slope, rq.incl, '#98a1ad', '#ffc93c', '%');
         drawTwoLines(document.getElementById('pf-speed'), rq.cum, rq.vB, rq.vT, '#98a1ad', '#5adca0', '');
@@ -4933,8 +4960,7 @@ function preflyConfirm() {
     if (!PREFLY) return;
     try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
     document.getElementById('prefly-overlay').style.display = 'none';
-    const wuEl = document.getElementById('pf-wu');
-    beginReplay(PREFLY.r, PREFLY.rq, !wuEl || wuEl.checked);
+    beginReplay(PREFLY.r, PREFLY.rq, { min: PREFLY.wuMin, spd: PREFLY.wuSpd });
     PREFLY = null;
 }
 function preflyCancel() { PREFLY = null; document.getElementById('prefly-overlay').style.display = 'none'; }
@@ -4949,11 +4975,11 @@ function beginReplay(r, rq, wu) {
            samples: [], lastSample: 0, sceneSeed: 1,
            /* fasi: riscaldamento (2 min, pendenza 0, velocit\u00e0 a gradini) \u2192
               percorso \u2192 defaticamento (2 min in piano, andatura blanda) */
-           phase: (bt && wu) ? 'warmup' : 'run', wuOpt: !!(bt && wu), wuDur: 120, wuT: 0, cdDur: 120, cdT: 0,
-           audio: bt, announced: -1,
+           phase: (wu && wu.min > 0) ? 'warmup' : 'run', wuOpt: !!(wu && wu.min > 0), wuDur: ((wu && wu.min) || 0) * 60, wuSpd: (wu && wu.spd) || 7, wuT: 0, cdDur: 120, cdT: 0,
+           audio: true, announced: -1,
            sv: false, svImg: null, svNext: 0, kcal: 0, belowS: 0, aboveS: 0, autoPaused: false, _gj: 0, ghostDelta: 0 };
     document.getElementById('replay-overlay').classList.add('on');
-    document.getElementById('rp-incl-box').style.display = bt ? 'block' : 'none';
+    document.getElementById('rp-incl-box').style.display = 'block';   // pendenza tapis sempre visibile (mai negativa)
     document.getElementById('rp-gap-box').style.display = bt ? 'block' : 'none';
     document.getElementById('rp-minus').style.display = bt ? 'block' : 'none';
     document.getElementById('rp-plus').style.display = bt ? 'block' : 'none';
@@ -4966,11 +4992,12 @@ function beginReplay(r, rq, wu) {
     const cv0 = document.getElementById('replay-canvas'); if (cv0) cv0.style.visibility = 'visible';
     document.getElementById('rp-chal').textContent = '';
     document.getElementById('rp-view').textContent = '2D';
-    setRpx(bt ? (RP.phase === 'warmup' ? '\u23ed Salta' : '\ud83c\udfc3 SFIDA') : '1\u00d7', bt && RP.phase !== 'warmup');
+    setRpx(RP.phase === 'warmup' ? '\u23ed Salta' : (bt ? '\ud83c\udfc3 SFIDA' : '1\u00d7'), bt && RP.phase !== 'warmup');
     if (bt) { BT.lastInclSent = null; BT.lastSpdSent = null; BT.lastSendT = 0; }
     if (RP.phase === 'warmup') rpAnnounce('Riscaldamento: due minuti a pendenza zero, velocit\u00e0 in aumento.', 2);
     const cv = document.getElementById('replay-canvas');
-    cv.width = cv.clientWidth * (devicePixelRatio||1); cv.height = cv.clientHeight * (devicePixelRatio||1);
+    const dprC = Math.min(1.5, devicePixelRatio || 1);   // cap: fluidit\u00e0 su mobile
+    cv.width = cv.clientWidth * dprC; cv.height = cv.clientHeight * dprC;
     requestAnimationFrame(rpFrame);
 }
 
@@ -5098,13 +5125,11 @@ function rpEmergency() {
 }
 function replaySpeed() {
     if (!RP) return;
-    if (btActive()) {
-        if (RP.phase === 'warmup') rpStartRun();
-        else if (RP.phase === 'cooldown') endReplay(true);
-        return;
-    }
+    if (RP.phase === 'warmup') { rpStartRun(); return; }         // ⏭ salta il riscaldamento (con o senza tapis)
+    if (RP.phase === 'cooldown') { endReplay(true); return; }    // ⏭ chiude il defaticamento
+    if (btActive()) return;                                       // in sfida la velocità la fa il nastro
     RP.mult = RP.mult >= 4 ? 1 : RP.mult * 2;
-    document.getElementById('rp-x').textContent = RP.mult + '\u00d7';
+    document.getElementById('rp-x').textContent = RP.mult + '×';
 }
 function replayPause() {
     if (!RP) return;
@@ -5130,10 +5155,7 @@ function rpFrame(now) {
     /* ── FASE RISCALDAMENTO: 2 min, pendenza 0, velocit\u00e0 a gradini verso il primo settore ── */
     if (RP.phase === 'warmup') {
         if (!RP.paused) RP.wuT += dt;
-        const sMinK = bt ? BT.effSpdMin / 100 : 1;
-        const first = Math.max(sMinK, RP.rq.sVT[0] + RP.offset);
-        const stepIdx = Math.min(3, Math.floor(RP.wuT / 30));
-        const target = sMinK + (first - sMinK) * (stepIdx + 1) / 4;
+        const target = Math.max(bt ? BT.effSpdMin / 100 : 1, Math.min(bt ? BT.effSpdMax / 100 : 20, RP.wuSpd));
         if (bt && !RP.paused) btSectorTick(0, target, 0, false);
         drawRoad(0, 0, 1, bt ? BT.speed * 3.6 : target);
         document.getElementById('rp-chal').textContent = 'RISCALDAMENTO \u00b7 \u2212' + fmtTime(Math.max(0, RP.wuDur - RP.wuT)) + ' \u00b7 target ' + target.toFixed(1) + ' km/h \u00b7 \u23ed per saltare';
@@ -5157,7 +5179,9 @@ function rpFrame(now) {
     /* ── FASE PERCORSO ── */
     const i = idxAt(RP.pos);
     const p = RP.r.pts[i];
-    const v = bt ? Math.max(1.0/3.6, BT.speed || 0) : Math.max(0.6, p[4]);
+    // senza tapis la simulazione segue il TARGET DI SETTORE (media 30/60 s),
+    // non il benchmark fine: \u00e8 il gemello di ci\u00f2 che il tapis farebbe
+    const v = bt ? Math.max(1.0/3.6, BT.speed || 0) : Math.max(0.6, (RP.rq.sVT[i] || p[4] * 3.6) / 3.6);
     const mult = bt ? 1 : RP.mult;
     /* auto-pausa: nastro fermo (stop dalla console o chiave di sicurezza) →
        la sfida si ferma da sola; riparte quando il nastro torna a girare */
@@ -5193,7 +5217,7 @@ function rpFrame(now) {
     RP.curveS += (curve - RP.curveS) * Math.min(1, dt * 4);
     RP.slopeS += (slope - RP.slopeS) * Math.min(1, dt * 3);
     /* pacer fantasma: dov'è il benchmark al mio stesso tempo trascorso */
-    if (bt) {
+    {
         let gj = RP._gj; const tm = RP.tim;
         while (gj < tm.length - 1 && tm[gj + 1] <= RP.elapsed) gj++;
         while (gj > 0 && tm[gj] > RP.elapsed) gj--;
@@ -5210,14 +5234,39 @@ function rpFrame(now) {
         img.onload = () => { if (RP) RP.svImg = img; };
         img.src = 'https://maps.googleapis.com/maps/api/streetview?size=640x360&location=' + p[1] + ',' + p[2] + '&heading=' + hdDeg.toFixed(0) + '&fov=95&pitch=0&key=' + encodeURIComponent(mapsKey());
     }
+    // ── HUD e riga settore: SEMPRE (anche senza tapis) ──
+    const sPct = RP.rq.slope[i];
+    const sEl = document.getElementById('rp-slope');
+    sEl.textContent = (sPct > 0.4 ? '\u25b2 ' : sPct < -0.4 ? '\u25bc ' : '') + Math.abs(sPct).toFixed(0) + '%';
+    sEl.style.color = sPct > 0.4 ? '#ff8a5c' : sPct < -0.4 ? '#5adca0' : '';
+    document.getElementById('rp-incl').textContent = RP.rq.sIncl[i].toFixed(1) + '%';
+    const tgtNow = RP.rq.sVT[i] + (bt ? RP.offset : 0);
+    document.getElementById('rp-chal').textContent =
+        'settore ~' + RP.rq.sectS + 's \u00b7 target ' + tgtNow.toFixed(1) + ' km/h' +
+        (Math.abs(RP.rq.sComp[i] - 1) > 0.005 ? ' \u00d7 comp ' + RP.rq.sComp[i].toFixed(2) : '') +
+        (Math.abs(RP.rq.sEq[i] - 1) > 0.005 ? ' \u00d7 equit\u00e0 ' + RP.rq.sEq[i].toFixed(2) : '') +
+        (bt && RP.offset ? (RP.offset > 0 ? ' +' : ' ') + RP.offset.toFixed(1) : '') +
+        ' \u00b7 tapis ' + RP.rq.sIncl[i].toFixed(1) + '%';
+    // annuncio audio 5 s prima del confine di settore (anche in simulazione)
+    if (RP.audio && !RP.paused) {
+        let bnd = i; const sI = RP.rq.sIncl, sV = RP.rq.sVT;
+        while (bnd < sI.length - 1 && sI[bnd + 1] === sI[i] && sV[bnd + 1] === sV[i]) bnd++;
+        bnd++;
+        if (bnd < sI.length && RP.announced !== bnd) {
+            const tTo = (RP.cum[bnd] - RP.pos) / Math.max(0.5, v);
+            if (tTo <= 5 && tTo > 0) {
+                RP.announced = bnd;
+                const dIncl = sI[bnd] - sI[i], dV = sV[bnd] - sV[i];
+                let msg = 'Tra poco: ';
+                msg += dIncl > 0.4 ? 'salita al ' + sI[bnd].toFixed(0) + ' per cento' : dIncl < -0.4 ? 'pendenza gi\u00f9 al ' + sI[bnd].toFixed(0) + ' per cento' : 'pendenza invariata';
+                msg += dV > 0.2 ? ', si accelera a ' + (sV[bnd] + (bt ? RP.offset : 0)).toFixed(1) : dV < -0.2 ? ', si rallenta a ' + (sV[bnd] + (bt ? RP.offset : 0)).toFixed(1) : '';
+                rpAnnounce(msg, 2);
+            }
+        }
+    }
+    // ── solo con tapis: comandi, gap e campionamento ──
     if (bt && !RP.paused) {
-        const det = btSectorTick(RP.rq.sIncl[i], RP.rq.sVT[i], RP.offset, false);
-        if (det) document.getElementById('rp-chal').textContent =
-            'settore ~' + RP.rq.sectS + 's \u00b7 target ' + det.target.toFixed(1) + ' km/h' +
-            (Math.abs(RP.rq.sComp[i]-1) > 0.005 ? ' \u00d7 comp ' + RP.rq.sComp[i].toFixed(2) : '') +
-            (Math.abs(RP.rq.sEq[i]-1) > 0.005 ? ' \u00d7 equit\u00e0 ' + RP.rq.sEq[i].toFixed(2) : '') +
-            (RP.offset ? (RP.offset > 0 ? ' +' : ' ') + RP.offset.toFixed(1) : '') +
-            ' \u00b7 pendenza bloccata ' + det.incl.toFixed(1) + '%';
+        btSectorTick(RP.rq.sIncl[i], RP.rq.sVT[i], RP.offset, false);
         const gap = (RP.tim[i] || 0) - RP.elapsed;
         const g = document.getElementById('rp-gap');
         g.textContent = (gap >= 0 ? '+' : '\u2212') + Math.abs(gap).toFixed(0) + 's';
@@ -5226,120 +5275,121 @@ function rpFrame(now) {
             RP.lastSample = RP.elapsed;
             RP.samples.push([+(RP.pos).toFixed(0), +(v*3.6).toFixed(1), Math.round(RP.elapsed), BT.machineIncl, hrActive() ? BTHR.bpm : null]);
         }
-        /* annuncio audio 5 s prima del confine di settore */
-        if (RP.audio) {
-            let b = i; const sI = RP.rq.sIncl, sV = RP.rq.sVT;
-            while (b < sI.length - 1 && sI[b+1] === sI[i] && sV[b+1] === sV[i]) b++;
-            b++;
-            if (b < sI.length && RP.announced !== b) {
-                const tTo = (RP.cum[b] - RP.pos) / Math.max(0.5, v);
-                if (tTo <= 5 && tTo > 0) {
-                    RP.announced = b;
-                    const dIncl = sI[b] - sI[i], dV = sV[b] - sV[i];
-                    let msg = 'Tra poco: ';
-                    msg += dIncl > 0.4 ? 'salita al ' + sI[b].toFixed(0) + ' per cento' : dIncl < -0.4 ? 'pendenza gi\u00f9 al ' + sI[b].toFixed(0) + ' per cento' : 'pendenza invariata';
-                    msg += dV > 0.2 ? ', si accelera a ' + (sV[b] + RP.offset).toFixed(1) : dV < -0.2 ? ', si rallenta a ' + (sV[b] + RP.offset).toFixed(1) : '';
-                    rpAnnounce(msg, 2);
-                }
-            }
-        }
     }
     if (RP.view === 'video') { /* scenario video: resta solo l'HUD */ }
     else if (RP.view === '3d') drawRoad(RP.curveS, RP.slopeS, p[5], v * 3.6);
     else drawReplay2D(i, v * 3.6);
     document.getElementById('rp-speed').textContent = (v * 3.6).toFixed(0);
-    document.getElementById('rp-slope').textContent = (RP.rq.slope[i]).toFixed(0) + '%';
     document.getElementById('rp-dist').textContent = (RP.pos / 1000).toFixed(1);
     document.getElementById('rp-time').textContent = fmtTime(RP.elapsed);
     document.getElementById('rp-bar').style.width = (RP.pos / RP.total * 100).toFixed(1) + '%';
     requestAnimationFrame(rpFrame);
 }
 
-/* ── 3D PROCEDURALE (migliorata): cielo con sole, montagne in
-   parallasse guidate dalla curvatura, alberi e paletti a bordo
-   strada, cartelli chilometrici, banking in curva, asfalto colorato
-   e chiazzato secondo la classe di superficie. ── */
+/* ── 3D PROCEDURALE v2: scena DIURNA e leggibile.
+   La pendenza si vede davvero: la strada sale/scende fisicamente verso
+   l'orizzonte (rampa), l'orizzonte si sposta, la freccia colorata è
+   nell'HUD. Cielo azzurro con sole e nuvole, prati verdi, asfalto
+   chiaro con foschia atmosferica in lontananza. Con 📷 attivo lo
+   sfondo è la foto Street View reale del punto in cui ti trovi. ── */
+function mixc(a, b, t) { return [Math.round(a[0]+(b[0]-a[0])*t), Math.round(a[1]+(b[1]-a[1])*t), Math.round(a[2]+(b[2]-a[2])*t)]; }
 function drawRoad(curve, slope, rough, kmh) {
     const cv = document.getElementById('replay-canvas');
     const ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
-    if (W < 10 || H < 10) return;   // canvas non ancora dimensionato: evita loop a passo zero
-    const shake = rough * 0.55 * Math.min(1.5, kmh / 40);
+    if (W < 10 || H < 10) return;
+    const shake = rough * 0.35 * Math.min(1.5, kmh / 40);
     const sx = (Math.random()-0.5) * shake * (W/420), sy = (Math.random()-0.5) * shake * (H/420);
-    const horizon = H * (0.42 - slope * 1.5);
+    // orizzonte: sale in discesa, scende in salita (vedi più strada)
+    const horizon = Math.max(H*0.20, Math.min(H*0.62, H * (0.44 - slope * 1.2)));
+    // RAMPA: in salita i tratti lontani della strada si ALZANO, in discesa spariscono sotto l'orizzonte
+    const dyR = t => -slope * H * 1.35 * t * t;
     ctx.save();
-    // banking leggero in curva
-    ctx.translate(W/2, H/2); ctx.rotate(-curve * 0.9); ctx.translate(-W/2, -H/2);
-    // sfondo: foto Street View se attiva e caricata, altrimenti cielo procedurale
+    ctx.translate(W/2, H/2); ctx.rotate(-curve * 0.7); ctx.translate(-W/2, -H/2);
+    const par = RP ? RP.dash : 0;
     const svOn = RP && RP.sv && RP.svImg && RP.svImg.complete && RP.svImg.naturalWidth > 0;
     if (svOn) {
         try {
             ctx.drawImage(RP.svImg, -W * 0.06 + sx * 0.3, -H * 0.03, W * 1.12, Math.max(60, horizon + H * 0.10));
-            ctx.fillStyle = 'rgba(8,12,18,.20)';
+            ctx.fillStyle = 'rgba(255,255,255,.06)';
             ctx.fillRect(-W * 0.06, -H * 0.03, W * 1.12, Math.max(60, horizon + H * 0.10));
         } catch (e) {}
     } else {
-    // cielo con sole
-        const sky = ctx.createLinearGradient(0, 0, 0, horizon);
-        sky.addColorStop(0, '#0b1322'); sky.addColorStop(0.7, '#25364e'); sky.addColorStop(1, '#3b4d63');
-        ctx.fillStyle = sky; ctx.fillRect(-W*0.2, -H*0.2, W*1.4, Math.max(0, horizon)+H*0.2);
-        const sunX = W*0.72 - curve*W*0.5, sunY = horizon*0.45;
-        const sun = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, H*0.12);
-        sun.addColorStop(0, 'rgba(255,230,170,.95)'); sun.addColorStop(1, 'rgba(255,230,170,0)');
-        ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sunX, sunY, H*0.12, 0, 7); ctx.fill();
-        // montagne in parallasse (due layer, scorrono con la curvatura accumulata)
-        const par = RP ? RP.dash : 0;
-        [[0.10, '#16202e', 90], [0.22, '#101821', 55]].forEach(([amp, col, hgt], li) => {
-            ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-W*0.2, horizon);
+        // cielo diurno
+        const sky = ctx.createLinearGradient(0, -H*0.1, 0, horizon);
+        sky.addColorStop(0, '#3d86d8'); sky.addColorStop(0.65, '#8fc0ec'); sky.addColorStop(1, '#d8ecfb');
+        ctx.fillStyle = sky; ctx.fillRect(-W*0.2, -H*0.2, W*1.4, Math.max(0, horizon)+H*0.22);
+        // sole caldo
+        const sunX = W*0.74 - curve*W*0.4, sunY = horizon*0.32;
+        const sun = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, H*0.16);
+        sun.addColorStop(0, 'rgba(255,250,225,1)'); sun.addColorStop(0.25, 'rgba(255,240,190,.9)'); sun.addColorStop(1, 'rgba(255,240,190,0)');
+        ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sunX, sunY, H*0.16, 0, 7); ctx.fill();
+        // nuvole in parallasse
+        ctx.fillStyle = 'rgba(255,255,255,.85)';
+        for (let c = 0; c < 3; c++) {
+            const cxN = ((c * 0.37 + 0.12) * W + par * (0.18 + c*0.07)) % (W*1.3) - W*0.15;
+            const cyN = horizon * (0.18 + c * 0.16);
+            const cw = W * (0.10 + c * 0.03);
+            ctx.beginPath();
+            ctx.ellipse(cxN, cyN, cw, cw*0.32, 0, 0, 7);
+            ctx.ellipse(cxN + cw*0.55, cyN + cw*0.08, cw*0.6, cw*0.24, 0, 0, 7);
+            ctx.fill();
+        }
+        // colline azzurrate dalla foschia
+        [[0.10, '#9db9d4', 1], [0.20, '#7fa3c4', 2]].forEach(([amp, col, li]) => {
+            ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-W*0.2, horizon+1);
             for (let x = -W*0.2; x <= W*1.2; x += W/24) {
-                const ph = x/W*6 + par*0.0009*(li+1) + curve*3;
-                ctx.lineTo(x, horizon - (Math.sin(ph)*0.5+0.5) * H*amp - 4);
+                const ph = x/W*6 + par*0.0009*li + curve*3;
+                ctx.lineTo(x, horizon - (Math.sin(ph)*0.5+0.5) * H*amp - 3);
             }
-            ctx.lineTo(W*1.2, horizon); ctx.closePath(); ctx.fill();
+            ctx.lineTo(W*1.2, horizon+1); ctx.closePath(); ctx.fill();
         });
     }
-    // terreno (colore dal tipo di superficie)
-    const sc = surfaceClass(rough);
+    // prato / terreno (bruno se il fondo è sterrato)
+    const dirt = rough > 4.5;
     const gnd = ctx.createLinearGradient(0, horizon, 0, H);
-    gnd.addColorStop(0, rough > 4.5 ? '#242019' : '#17201a');
-    gnd.addColorStop(1, '#0c110d');
+    gnd.addColorStop(0, dirt ? '#a3855f' : '#7ab465');
+    gnd.addColorStop(0.5, dirt ? '#7c6244' : '#4e8a44');
+    gnd.addColorStop(1, dirt ? '#5a462f' : '#2f5c31');
     ctx.fillStyle = gnd; ctx.fillRect(-W*0.2, horizon, W*1.4, H*1.4 - horizon);
-    // strada prospettica
-    const steps = 30;
+    // strada prospettica con rampa e foschia
+    const steps = 28;
     const bend = curve * 2600;
     const edges = [];
+    const FOG = [214, 233, 248];
     for (let s2 = 0; s2 < steps; s2++) {
         const t0 = s2/steps, t1 = (s2+1)/steps;
-        const y0 = H - (H-horizon)*t0, y1 = H - (H-horizon)*t1;
+        const y0 = H - (H-horizon)*t0 + dyR(t0), y1 = H - (H-horizon)*t1 + dyR(t1);
         const p0 = 1-t0, p1 = 1-t1;
-        const w0 = W*(0.05+0.75*p0*p0), w1 = W*(0.05+0.75*p1*p1);
+        const w0 = W*(0.05+0.80*p0*p0), w1 = W*(0.05+0.80*p1*p1);
         const cx0 = W/2 + bend*t0*t0*(W/900) + sx, cx1 = W/2 + bend*t1*t1*(W/900) + sx;
-        const base = 40 + s2;
-        const tint = rough > 5.5 ? [base+14, base+8, base] : rough > 3 ? [base+6, base+5, base+2] : [base, base+2, base+5];
+        // asfalto chiaro (o brecciato), sbiadito verso la foschia
+        const base = rough > 5.5 ? [146,132,112] : rough > 3 ? [138,140,140] : [128,133,140];
+        const tint = mixc([base[0]+s2, base[1]+s2, base[2]+s2], FOG, t0*0.55);
         ctx.fillStyle = `rgb(${tint[0]},${tint[1]},${tint[2]})`;
         ctx.beginPath();
         ctx.moveTo(cx0-w0/2, y0+sy); ctx.lineTo(cx0+w0/2, y0+sy);
         ctx.lineTo(cx1+w1/2, y1+sy); ctx.lineTo(cx1-w1/2, y1+sy);
         ctx.closePath(); ctx.fill();
-        // chiazze/buche sui fondi rovinati
-        if (rough > 4 && (Math.floor(RP ? RP.dash/3 : 0) + s2) % 4 === 0) {
-            ctx.fillStyle = 'rgba(0,0,0,.25)';
+        if (rough > 4 && (Math.floor(par/3) + s2) % 4 === 0) {
+            ctx.fillStyle = 'rgba(60,50,40,.35)';
             ctx.beginPath(); ctx.ellipse(cx0 + (s2%2? -1:1)*w0*0.2, y0+sy, w0*0.06, 3*p0+1, 0, 0, 7); ctx.fill();
         }
-        ctx.strokeStyle = 'rgba(235,240,245,.75)'; ctx.lineWidth = Math.max(1, 3*p0);
+        const eA = 0.95 - t0*0.5;
+        ctx.strokeStyle = `rgba(250,252,255,${eA})`; ctx.lineWidth = Math.max(1, 3.4*p0);
         ctx.beginPath(); ctx.moveTo(cx0-w0/2, y0+sy); ctx.lineTo(cx1-w1/2, y1+sy); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(cx0+w0/2, y0+sy); ctx.lineTo(cx1+w1/2, y1+sy); ctx.stroke();
-        if (Math.floor((RP ? RP.dash : 0)/6 + s2*0.8) % 2 === 0) {
-            ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = Math.max(1.5, 6*p0);
+        if (Math.floor(par/6 + s2*0.8) % 2 === 0) {
+            ctx.strokeStyle = `rgba(255,205,60,${eA})`; ctx.lineWidth = Math.max(1.5, 6*p0);
             ctx.beginPath(); ctx.moveTo(cx0, y0+sy); ctx.lineTo(cx1, y1+sy); ctx.stroke();
         }
         edges.push({ t: t0, y: y0, cx: cx0, w: w0, p: p0 });
     }
-    // scenografia deterministica: alberi/paletti che "arrivano" con la distanza
+    // scenografia: alberi vivi, paletti, cartelli km
     if (RP) {
         for (let k = 0; k < 14; k++) {
-            const worldD = Math.floor((RP.pos + k*24) / 24) * 24;                 // un oggetto ogni 24 m
-            const t = 1 - Math.min(0.98, (worldD - RP.pos) / (24*14));            // vicino=1
+            const worldD = Math.floor((RP.pos + k*24) / 24) * 24;
+            const t = 1 - Math.min(0.98, (worldD - RP.pos) / (24*14));
             if (t < 0.05) continue;
             const seed = Math.sin(worldD * 12.9898) * 43758.5453;
             const rnd = seed - Math.floor(seed);
@@ -5348,65 +5398,66 @@ function drawRoad(curve, slope, rough, kmh) {
             const side = rnd > 0.5 ? 1 : -1;
             const ox = e.cx + side * (e.w/2 + e.w * (0.15 + rnd*0.35));
             const oy = e.y + sy;
-            if (worldD % 1000 < 24) {                                             // cartello chilometrico
+            if (worldD % 1000 < 24) {
                 const hgt = 46*e.p;
-                ctx.fillStyle = '#aab4bf'; ctx.fillRect(ox-1.5*e.p, oy-hgt, 3*e.p, hgt);
-                ctx.fillStyle = '#ffc93c'; ctx.fillRect(ox-14*e.p, oy-hgt-16*e.p, 28*e.p, 14*e.p);
-                if (e.p > 0.45) { ctx.fillStyle = '#15181c'; ctx.font = 'bold ' + Math.round(10*e.p) + 'px monospace'; ctx.textAlign = 'center';
+                ctx.fillStyle = '#c8cdd3'; ctx.fillRect(ox-1.5*e.p, oy-hgt, 3*e.p, hgt);
+                ctx.fillStyle = '#ffcd3f'; ctx.fillRect(ox-14*e.p, oy-hgt-16*e.p, 28*e.p, 14*e.p);
+                if (e.p > 0.45) { ctx.fillStyle = '#243041'; ctx.font = 'bold ' + Math.round(10*e.p) + 'px monospace'; ctx.textAlign = 'center';
                     ctx.fillText((worldD/1000).toFixed(0) + 'km', ox, oy-hgt-5*e.p); ctx.textAlign = 'left'; }
-            } else if (rnd < 0.55) {                                              // albero
-                const hgt = (30 + rnd*40) * e.p;
-                ctx.fillStyle = '#3a2d20'; ctx.fillRect(ox-2*e.p, oy-hgt*0.4, 4*e.p, hgt*0.4);
-                ctx.fillStyle = rnd < 0.3 ? '#1d3a26' : '#24462c';
+            } else if (rnd < 0.55) {
+                const hgt = (32 + rnd*42) * e.p;
+                ctx.fillStyle = '#6b4a2b'; ctx.fillRect(ox-2*e.p, oy-hgt*0.4, 4*e.p, hgt*0.4);
+                const gr = rnd < 0.3 ? '#2f7d3a' : '#43a24d';
+                ctx.fillStyle = gr;
                 ctx.beginPath(); ctx.arc(ox, oy-hgt*0.62, hgt*0.34, 0, 7); ctx.fill();
-            } else {                                                              // paletto
-                ctx.fillStyle = '#d8dde2'; ctx.fillRect(ox-1.2*e.p, oy-16*e.p, 2.4*e.p, 16*e.p);
-                ctx.fillStyle = '#ff6b5e'; ctx.fillRect(ox-1.2*e.p, oy-16*e.p, 2.4*e.p, 4*e.p);
+                ctx.fillStyle = 'rgba(255,255,255,.18)';
+                ctx.beginPath(); ctx.arc(ox - hgt*0.10, oy-hgt*0.70, hgt*0.16, 0, 7); ctx.fill();
+            } else {
+                ctx.fillStyle = '#f2f5f8'; ctx.fillRect(ox-1.2*e.p, oy-16*e.p, 2.4*e.p, 16*e.p);
+                ctx.fillStyle = '#e2483d'; ctx.fillRect(ox-1.2*e.p, oy-16*e.p, 2.4*e.p, 4*e.p);
             }
         }
     }
-    /* ── PACER FANTASMA: il benchmark corre sulla strada davanti (o dietro) a te ── */
-    if (RP && RP.phase === 'run' && btActive()) {
+    /* ── PACER FANTASMA sulla strada ── */
+    if (RP && RP.phase === 'run') {
         const gd = RP.ghostDelta || 0;
         if (gd > 2 && gd < 330) {
             const rel = gd / 330, pfar = 1 - rel;
-            const gy = H - (H - horizon) * rel + sy;
+            const gy = H - (H - horizon) * rel + dyR(rel) + sy;
             const gx = W / 2 + bend * rel * rel * (W / 900) + sx;
             const hgt = Math.max(9, 66 * pfar);
-            const swing = Math.sin((RP.dash || 0) * 0.6) * hgt * 0.12;   // gambe animate
-            ctx.globalAlpha = 0.8;
-            ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = Math.max(2, 5 * pfar); ctx.lineCap = 'round';
+            const swing = Math.sin((RP.dash || 0) * 0.6) * hgt * 0.12;
+            ctx.globalAlpha = 0.85;
+            ctx.strokeStyle = '#ff7a1a'; ctx.lineWidth = Math.max(2, 5 * pfar); ctx.lineCap = 'round';
             ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.58); ctx.lineTo(gx, gy - hgt * 0.18); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.18); ctx.lineTo(gx - hgt * 0.16 - swing, gy); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.18); ctx.lineTo(gx + hgt * 0.16 - swing, gy - Math.abs(swing) * 0.4); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(gx, gy - hgt * 0.50); ctx.lineTo(gx + hgt * 0.14 + swing * 0.6, gy - hgt * 0.34); ctx.stroke();
-            ctx.fillStyle = '#ffc93c'; ctx.beginPath(); ctx.arc(gx, gy - hgt * 0.70, Math.max(2.5, hgt * 0.13), 0, 7); ctx.fill();
+            ctx.fillStyle = '#ff7a1a'; ctx.beginPath(); ctx.arc(gx, gy - hgt * 0.70, Math.max(2.5, hgt * 0.13), 0, 7); ctx.fill();
             ctx.globalAlpha = 1;
             if (pfar > 0.3) {
-                ctx.fillStyle = 'rgba(255,201,60,.95)';
-                ctx.font = 'bold ' + Math.round(11 * Math.max(0.7, pfar) * (devicePixelRatio || 1)) + 'px monospace';
+                ctx.fillStyle = 'rgba(200,70,10,.95)';
+                ctx.font = 'bold ' + Math.round(11 * Math.max(0.7, pfar) * Math.min(1.5, devicePixelRatio || 1)) + 'px monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText('BENCH +' + gd.toFixed(0) + 'm', gx, gy - hgt - 6);
                 ctx.textAlign = 'left';
             }
         } else if (gd <= 2) {
-            ctx.fillStyle = 'rgba(90,220,160,.95)';
-            ctx.font = 'bold ' + Math.round(12 * (devicePixelRatio || 1)) + 'px monospace';
+            ctx.fillStyle = 'rgba(20,110,60,.95)';
+            ctx.font = 'bold ' + Math.round(12 * Math.min(1.5, devicePixelRatio || 1)) + 'px monospace';
             ctx.fillText('\ud83d\udc7b benchmark ' + Math.abs(gd).toFixed(0) + ' m dietro di te', 14, H - 14);
         } else {
-            ctx.fillStyle = 'rgba(255,107,94,.95)';
-            ctx.font = 'bold ' + Math.round(12 * (devicePixelRatio || 1)) + 'px monospace';
+            ctx.fillStyle = 'rgba(200,70,10,.95)';
+            ctx.font = 'bold ' + Math.round(12 * Math.min(1.5, devicePixelRatio || 1)) + 'px monospace';
             ctx.fillText('\ud83d\udc7b benchmark a +' + gd.toFixed(0) + ' m, fuori vista', 14, H - 14);
         }
     }
     ctx.restore();
-    const vg = ctx.createRadialGradient(W/2, H*0.55, H*0.3, W/2, H*0.55, H*0.95);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
+    const vg = ctx.createRadialGradient(W/2, H*0.55, H*0.35, W/2, H*0.55, H*1.0);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(20,30,40,.25)');
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 }
 
-/* ── 2D A GRAFICI: pendenza e velocità dell'intero percorso con
-   cursore di posizione, target vs prestazione reale ── */
 function drawReplay2D(i, kmhNow) {
     const cv = document.getElementById('replay-canvas');
     const ctx = cv.getContext('2d');
@@ -5457,7 +5508,7 @@ function drawReplay2D(i, kmhNow) {
     ctx.fillStyle = '#ffc93c'; ctx.beginPath(); ctx.arc(cx, SY(rq.slope[i]), 5*(devicePixelRatio||1), 0, 7); ctx.fill();
     ctx.fillStyle = '#5adca0'; ctx.beginPath(); ctx.arc(cx, VY(rq.vT[i]), 5*(devicePixelRatio||1), 0, 7); ctx.fill();
     /* pacer fantasma anche in 2D: linea tratteggiata arancione dove si trova il benchmark */
-    if (btActive() && RP.phase === 'run') {
+    if (RP.phase === 'run') {
         const gpos = Math.max(0, Math.min(total, RP.pos + (RP.ghostDelta || 0)));
         const gx2 = X(gpos);
         ctx.strokeStyle = 'rgba(255,201,60,.95)'; ctx.lineWidth = 2;
